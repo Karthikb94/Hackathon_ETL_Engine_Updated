@@ -1,0 +1,81 @@
+{
+  "output_path": "output/customer_transformation",
+  "output_format": "csv",
+  "mappings": [
+    {
+      "source": "Customer Id",
+      "target": "customer_id",
+      "transform": "to_str"
+    },
+    {
+      "source": "First Name",
+      "target": "full_name_upper",
+      "transform": "trns: STRING[UPPER(CONCAT(attr('First Name'), ' ', attr('Last Name')))]"
+    },
+    {
+      "source": "Company",
+      "target": "company_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "City",
+      "target": "city_upper",
+      "transform": "upper"
+    },
+    {
+      "source": "Country",
+      "target": "country_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "Country",
+      "target": "country_code",
+      "transform": "trns: STRING[SUBSTR(attr('Country'), 0, 2)]"
+    },
+    {
+      "source": "Phone 1",
+      "target": "phone1_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "Phone 1",
+      "target": "phone1_formatted",
+      "transform": "trns: STRING[CONCAT('(', attr('Phone 1'), ')')]"
+    },
+    {
+      "source": "Phone 2",
+      "target": "phone2_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "Phone 2",
+      "target": "has_phone2",
+      "transform": "trns: BOOLEAN[NOT_EQUALS(attr('Phone 2'), '')]"
+    },
+    {
+      "source": "Email",
+      "target": "email_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "Email",
+      "target": "email_lower",
+      "transform": "lower"
+    },
+    {
+      "source": "Subscription Date",
+      "target": "subscription_date_clean",
+      "transform": "trns: DATE[PARSE(attr('Subscription Date'), 'MMDDYYYY')]"
+    },
+    {
+      "source": "Website",
+      "target": "has_website",
+      "transform": "trns: BOOLEAN[NOT_EQUALS(attr('Website'), '')]"
+    },
+    {
+      "source": "First Name",
+      "target": "name_length",
+      "transform": "trns: STRING[LENGTH(attr('First Name'))]"
+    }
+  ]
+}

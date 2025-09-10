@@ -1,0 +1,56 @@
+{
+  "output_path": "output/simple_customer_test",
+  "output_format": "csv",
+  "mappings": [
+    {
+      "source": "Customer Id",
+      "target": "customer_id",
+      "transform": "to_str"
+    },
+    {
+      "source": "First Name",
+      "target": "first_name",
+      "transform": "trim"
+    },
+    {
+      "source": "Last Name",
+      "target": "last_name",
+      "transform": "trim"
+    },
+    {
+      "source": "Company",
+      "target": "company",
+      "transform": "trim"
+    },
+    {
+      "source": "City",
+      "target": "city",
+      "transform": "upper"
+    },
+    {
+      "source": "Country",
+      "target": "country",
+      "transform": "upper"
+    },
+    {
+      "source": "Phone 1",
+      "target": "phone1",
+      "transform": "trim"
+    },
+    {
+      "source": "Phone 2",
+      "target": "phone2",
+      "transform": "trim"
+    },
+    {
+      "source": "Email",
+      "target": "email",
+      "transform": "lower"
+    },
+    {
+      "source": "Website",
+      "target": "website",
+      "transform": "trim"
+    }
+  ]
+}

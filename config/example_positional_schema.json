@@ -1,0 +1,59 @@
+{
+  "fields": [
+    {
+      "name": "customer_id",
+      "start": 1,
+      "length": 10,
+      "type": "string",
+      "padding": "right",
+      "pad_char": " "
+    },
+    {
+      "name": "account_number",
+      "start": 11,
+      "length": 15,
+      "type": "string",
+      "padding": "left",
+      "pad_char": "0"
+    },
+    {
+      "name": "balance",
+      "start": 26,
+      "length": 12,
+      "type": "decimal",
+      "padding": "left",
+      "pad_char": "0"
+    },
+    {
+      "name": "transaction_date",
+      "start": 38,
+      "length": 8,
+      "type": "date",
+      "format": "%Y%m%d",
+      "padding": "none"
+    },
+    {
+      "name": "status",
+      "start": 46,
+      "length": 1,
+      "type": "string",
+      "padding": "none"
+    },
+    {
+      "name": "transaction_type",
+      "start": 47,
+      "length": 3,
+      "type": "string",
+      "padding": "right",
+      "pad_char": " "
+    },
+    {
+      "name": "amount",
+      "start": 50,
+      "length": 10,
+      "type": "decimal",
+      "padding": "left",
+      "pad_char": "0"
+    }
+  ]
+}

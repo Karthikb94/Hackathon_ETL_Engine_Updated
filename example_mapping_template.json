@@ -1,0 +1,46 @@
+{
+  "output_path": "output/example_transformation",
+  "output_format": "csv",
+  "mappings": [
+    {
+      "source": "id",
+      "target": "customer_id",
+      "transform": "to_str"
+    },
+    {
+      "source": "first_name",
+      "target": "first_name_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "last_name",
+      "target": "last_name_clean",
+      "transform": "trim"
+    },
+    {
+      "source": "first_name",
+      "target": "full_name",
+      "transform": "trns: STRING[CONCAT(attr('first_name'), ' ', attr('last_name'))]"
+    },
+    {
+      "source": "email",
+      "target": "email_lower",
+      "transform": "lower"
+    },
+    {
+      "source": "city",
+      "target": "city_upper",
+      "transform": "upper"
+    },
+    {
+      "source": "phone",
+      "target": "has_phone",
+      "transform": "trns: BOOLEAN[NOT_EQUALS(attr('phone'), '')]"
+    },
+    {
+      "source": "created_date",
+      "target": "parsed_date",
+      "transform": "trns: DATE[PARSE(attr('created_date'), 'YYYY-MM-DD')]"
+    }
+  ]
+}
