@@ -121,6 +121,44 @@ def parse_boolean_expr(expr: str):
         if method == "LESS_OR_EQUAL":
             a, b = args
             return parse_value(a) <= parse_value(b)
+        if method == "AND":
+            # Handle AND with multiple arguments
+            if len(args) < 2:
+                raise ValueError("AND requires at least 2 arguments")
+            result = parse_value(args[0])
+            for arg in args[1:]:
+                result = result & parse_value(arg)
+            return result
+        if method == "OR":
+            # Handle OR with multiple arguments
+            if len(args) < 2:
+                raise ValueError("OR requires at least 2 arguments")
+            result = parse_value(args[0])
+            for arg in args[1:]:
+                result = result | parse_value(arg)
+            return result
+        if method == "NOT":
+            # Handle NOT with single argument
+            if len(args) != 1:
+                raise ValueError("NOT requires exactly 1 argument")
+            return ~parse_value(args[0])
+        if method == "IF":
+            # Handle IF with 3 arguments
+            if len(args) < 3:
+                raise ValueError("IF requires 3 arguments: condition, trueValue, falseValue")
+            cond = parse_value(args[0])
+            tv = parse_value(args[1])
+            fv = parse_value(args[2])
+            return pl.when(cond).then(tv).otherwise(fv)
+        if method == "ENDSWITH":
+            a, b = args
+            return parse_value(a).str.ends_with(parse_value(b))
+        if method == "STARTSWITH":
+            a, b = args
+            return parse_value(a).str.starts_with(parse_value(b))
+        if method == "CONTAINS":
+            a, b = args
+            return parse_value(a).str.contains(parse_value(b))
         raise ValueError(f"Unsupported BOOLEAN method: {method}")
     
     # Handle IF statements for FILTER operations
@@ -138,7 +176,8 @@ def parse_boolean_expr(expr: str):
     # Handle BOOLEAN method calls for FILTER operations
     if (expr.startswith("EQ(") or expr.startswith("GT(") or expr.startswith("LT(") or 
         expr.startswith("GTE(") or expr.startswith("LTE(") or expr.startswith("NE(") or
-        expr.startswith("ENDSWITH(") or expr.startswith("STARTSWITH(") or expr.startswith("CONTAINS(")):
+        expr.startswith("ENDSWITH(") or expr.startswith("STARTSWITH(") or expr.startswith("CONTAINS(") or
+        expr.startswith("AND(") or expr.startswith("OR(") or expr.startswith("NOT(") or expr.startswith("IF(")):
         # Extract method name and arguments
         m = re.match(r"(\w+)\s*\((.*)\)$", expr.strip(), re.DOTALL)
         if m:
@@ -172,6 +211,35 @@ def parse_boolean_expr(expr: str):
             elif method == "CONTAINS":
                 a, b = args
                 return parse_value(a).str.contains(parse_value(b))
+            elif method == "AND":
+                # Handle AND with multiple arguments
+                if len(args) < 2:
+                    raise ValueError("AND requires at least 2 arguments")
+                result = parse_boolean_expr(args[0])
+                for arg in args[1:]:
+                    result = result & parse_boolean_expr(arg)
+                return result
+            elif method == "OR":
+                # Handle OR with multiple arguments
+                if len(args) < 2:
+                    raise ValueError("OR requires at least 2 arguments")
+                result = parse_boolean_expr(args[0])
+                for arg in args[1:]:
+                    result = result | parse_boolean_expr(arg)
+                return result
+            elif method == "NOT":
+                # Handle NOT with single argument
+                if len(args) != 1:
+                    raise ValueError("NOT requires exactly 1 argument")
+                return ~parse_boolean_expr(args[0])
+            elif method == "IF":
+                # Handle IF with 3 arguments
+                if len(args) < 3:
+                    raise ValueError("IF requires 3 arguments: condition, trueValue, falseValue")
+                cond = parse_boolean_expr(args[0])
+                tv = parse_value(args[1])
+                fv = parse_value(args[2])
+                return pl.when(cond).then(tv).otherwise(fv)
             else:
                 raise ValueError(f"Unsupported BOOLEAN method: {method}")
         else:
@@ -213,6 +281,73 @@ def parse_value(token: str):
     # Handle bare method calls like CONCAT(...) by wrapping them in STRING[...]
     if token.startswith(("CONCAT(", "UPPER(", "LOWER(", "TRIM(", "LENGTH(", "REPLACE(", "SUBSTR(")):
         return parse_transform_expression(f"STRING[{token}]")
+    # Handle boolean expressions like GREATER_THAN(...), AND(...), etc.
+    if token.startswith(("GREATER_THAN(", "GT(", "LESS_THAN(", "LT(", "EQUALS(", "EQ(", "NOT_EQUALS(", "NE(", 
+                        "GREATER_OR_EQUAL(", "GTE(", "LESS_OR_EQUAL(", "LTE(", "ENDSWITH(", "STARTSWITH(", 
+                        "CONTAINS(", "AND(", "OR(", "NOT(", "IF(", "SPLIT(")):
+        # Handle boolean expressions directly to avoid circular calls
+        m = re.match(r"(\w+)\s*\((.*)\)$", token.strip(), re.DOTALL)
+        if m:
+            method = m.group(1).upper()
+            args_str = m.group(2)
+            args = split_args(args_str)
+            
+            if method == "GREATER_THAN" or method == "GT":
+                a, b = args
+                return parse_value(a) > parse_value(b)
+            elif method == "LESS_THAN" or method == "LT":
+                a, b = args
+                return parse_value(a) < parse_value(b)
+            elif method == "EQUALS" or method == "EQ":
+                a, b = args
+                return parse_value(a).eq(parse_value(b))
+            elif method == "NOT_EQUALS" or method == "NE":
+                a, b = args
+                return parse_value(a).ne(parse_value(b))
+            elif method == "GREATER_OR_EQUAL" or method == "GTE":
+                a, b = args
+                return parse_value(a) >= parse_value(b)
+            elif method == "LESS_OR_EQUAL" or method == "LTE":
+                a, b = args
+                return parse_value(a) <= parse_value(b)
+            elif method == "ENDSWITH":
+                a, b = args
+                return parse_value(a).str.ends_with(parse_value(b))
+            elif method == "STARTSWITH":
+                a, b = args
+                return parse_value(a).str.starts_with(parse_value(b))
+            elif method == "CONTAINS":
+                a, b = args
+                return parse_value(a).str.contains(parse_value(b))
+            elif method == "AND":
+                if len(args) < 2:
+                    raise ValueError("AND requires at least 2 arguments")
+                result = parse_value(args[0])
+                for arg in args[1:]:
+                    result = result & parse_value(arg)
+                return result
+            elif method == "OR":
+                if len(args) < 2:
+                    raise ValueError("OR requires at least 2 arguments")
+                result = parse_value(args[0])
+                for arg in args[1:]:
+                    result = result | parse_value(arg)
+                return result
+            elif method == "NOT":
+                if len(args) != 1:
+                    raise ValueError("NOT requires exactly 1 argument")
+                return ~parse_value(args[0])
+            elif method == "IF":
+                if len(args) < 3:
+                    raise ValueError("IF requires 3 arguments: condition, trueValue, falseValue")
+                cond = parse_value(args[0])
+                tv = parse_value(args[1])
+                fv = parse_value(args[2])
+                return pl.when(cond).then(tv).otherwise(fv)
+            elif method == "SPLIT":
+                s = parse_value(args[0]).cast(pl.Utf8)
+                delim = args[1].strip().strip("'\"")
+                return s.str.split(delim)
     # attr('col')
     col = parse_attr(token)
     if col is not None:
@@ -327,6 +462,10 @@ def parse_transform_expression(expr: str):
             base = parse_value(args[0]).cast(pl.Utf8)
             substring = parse_value(args[1])
             return base.str.contains(substring)
+        if method == "SPLIT":
+            base = parse_value(args[0]).cast(pl.Utf8)
+            delim = args[1].strip().strip("'\"")
+            return base.str.split(delim)
         raise ValueError(f"Unsupported STRING method: {method}")
 
     if op == "LOGICAL":
