@@ -2,6 +2,7 @@ import os
 import json
 import time
 from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from .logger import get_logger
 from .reader import read_data_file
@@ -9,6 +10,12 @@ from .transformer import apply_transformations
 from .writer import write_output
 from .exceptions import ETLError, MappingError, TransformError, ValidationError, WriterError
 from .utils import timestamp_run_id
+
+class TransformRequest(BaseModel):
+    input_filename: str
+    output_filename: str
+    output_format: str = "csv"
+    mapping_config: dict
 
 app = FastAPI(
     title="ETL Engine v1", 
@@ -18,19 +25,122 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-BASE_OUTPUT_DIR = os.environ.get("ETL_OUTPUT_DIR", "output")
-BASE_LOGS_DIR = os.environ.get("ETL_LOGS_DIR", "logs")
+# Updated paths for multi-engine architecture
+BASE_OUTPUT_DIR = os.environ.get("ETL_OUTPUT_DIR", "../storage/transformed")
+BASE_LOGS_DIR = os.environ.get("ETL_LOGS_DIR", "../storage/logs")
+BASE_INPUT_DIR = os.environ.get("ETL_INPUT_DIR", "../storage/input")
 
 @app.on_event("startup")
 async def startup_event():
     """Ensure required directories exist on startup."""
     os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
     os.makedirs(BASE_LOGS_DIR, exist_ok=True)
+    os.makedirs(BASE_INPUT_DIR, exist_ok=True)
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint to verify the service is running."""
     return {"status": "healthy", "service": "ETL Engine v1", "version": "1.0.0"}
+
+@app.post("/transform-file")
+async def transform_file(request: TransformRequest):
+    """
+    Transform data using file names from storage folder.
+    
+    Args:
+        request: TransformRequest containing input_filename, output_filename, output_format, and mapping_config
+    
+    Returns:
+        JSON response with transformation results
+    """
+    run_id = timestamp_run_id()
+    logger, log_path = get_logger(run_id, logs_dir=BASE_LOGS_DIR)
+    
+    start_time = time.time()
+    logger.info("ETL run started with file-based input")
+    
+    try:
+        # Construct file paths
+        input_path = os.path.join(BASE_INPUT_DIR, request.input_filename)
+        output_path = os.path.join(BASE_OUTPUT_DIR, request.output_filename)
+        
+        # Check if input file exists
+        if not os.path.exists(input_path):
+            raise HTTPException(status_code=404, detail=f"Input file not found: {request.input_filename}")
+        
+        logger.info(f"Processing input file: {input_path}")
+        logger.info(f"Output will be saved to: {output_path}")
+        
+        # Read input data
+        try:
+            df = read_data_file(input_path)
+            logger.info(f"Data loaded successfully: {df.shape[0]} rows, {df.shape[1]} columns")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to read input file: {e}")
+        
+        # Validate mapping configuration
+        if not isinstance(request.mapping_config, dict):
+            raise HTTPException(status_code=400, detail="Mapping configuration must be a dictionary")
+        
+        if "mappings" not in request.mapping_config:
+            raise HTTPException(status_code=400, detail="Mapping configuration must contain 'mappings' key")
+        
+        mappings = request.mapping_config["mappings"]
+        if not isinstance(mappings, list):
+            raise HTTPException(status_code=400, detail="Mappings must be a list")
+        
+        logger.info(f"Applying {len(mappings)} transformations")
+        
+        # Apply transformations
+        try:
+            transformed_df = apply_transformations(df, mappings)
+            logger.info(f"Transformations applied successfully: {transformed_df.shape[0]} rows, {transformed_df.shape[1]} columns")
+        except Exception as e:
+            logger.error(f"Transformation failed: {e}")
+            raise HTTPException(status_code=400, detail=f"Transformation failed: {e}")
+        
+        # Write output
+        try:
+            write_output(transformed_df, output_path, request.output_format, request.mapping_config)
+            logger.info(f"Output written successfully to: {output_path}")
+        except Exception as e:
+            logger.error(f"Failed to write output: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to write output: {e}")
+        
+        # Calculate processing time
+        processing_time = time.time() - start_time
+        logger.info(f"ETL run completed successfully in {processing_time:.2f} seconds")
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "run_id": run_id,
+                "input_file": request.input_filename,
+                "output_file": request.output_filename,
+                "output_format": request.output_format,
+                "rows_processed": transformed_df.shape[0],
+                "columns_output": transformed_df.shape[1],
+                "processing_time_seconds": round(processing_time, 2),
+                "log_file": log_path,
+                "message": "Transformation completed successfully"
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={
+                "status": "error",
+                "run_id": run_id,
+                "error": str(e),
+                "log_file": log_path,
+                "message": "Transformation failed due to unexpected error"
+            }
+        )
 
 @app.post("/transform")
 async def transform_endpoint(

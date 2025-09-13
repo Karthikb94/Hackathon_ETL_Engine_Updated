@@ -1,326 +1,163 @@
-# ETL Engine v1
+# Multi-Engine ETL System
 
-A simple and powerful ETL (Extract, Transform, Load) engine built with FastAPI and Polars. This version focuses on ease of use with file uploads and straightforward mapping configurations.
+This is a multi-engine ETL (Extract, Transform, Load) system designed for parallel processing and inter-engine communication.
 
-## Features
+## Architecture
 
-- **Simple File Upload**: Upload data files and mapping configurations via web interface
-- **Multiple Input Formats**: Support for CSV, Parquet, and JSON files
-- **Multiple Output Formats**: CSV, JSON, Excel, XML, and Fixed-Width output
-- **Rich Transformations**: Powerful transformation language for data manipulation
-- **RESTful API**: Clean FastAPI interface with automatic documentation
-- **High Performance**: Built on Polars for fast, memory-efficient data processing
+```
+root/
+├── client/                    # Client applications and interfaces
+├── exp/                      # Experience Engine (separate service)
+├── parsingEngine/            # Parsing Engine (separate service)
+├── transformationEngine/     # Transformation Engine (this repository)
+│   ├── app/                  # Core transformation application
+│   │   ├── main.py          # FastAPI application with endpoints
+│   │   ├── reader.py        # Data reading functionality
+│   │   ├── transformer.py   # Advanced transformation engine
+│   │   ├── writer.py        # Output writing functionality
+│   │   ├── utils.py         # Utility functions and parsing
+│   │   ├── logger.py        # Logging configuration
+│   │   └── exceptions.py    # Custom exception classes
+│   ├── requirements.txt     # Python dependencies
+│   ├── start.py            # Startup script
+│   └── README.md           # Transformation engine documentation
+├── storage/                 # Shared storage for all engines
+│   ├── input/              # Input files (e.g., lsad.parquet)
+│   ├── transformed/        # Output files (e.g., lsad.json)
+│   └── logs/              # Log files from all engines
+└── README.md              # This file
+```
+
+## Engines
+
+### 1. Transformation Engine (Port 8001)
+- **Purpose**: Handles data transformation operations
+- **Features**: 100% permutation combination support, advanced parsing tree
+- **API**: RESTful API with file-based processing
+- **Storage**: Reads from `storage/input/`, writes to `storage/transformed/`
+
+### 2. Parsing Engine (Port 8002)
+- **Purpose**: Handles data parsing and validation
+- **Features**: Multi-format parsing, schema validation
+- **API**: RESTful API for parsing operations
+- **Storage**: Reads from `storage/input/`, writes to `storage/transformed/`
+
+### 3. Experience Engine (Port 8003)
+- **Purpose**: Handles user experience and interface operations
+- **Features**: UI components, user interactions
+- **API**: RESTful API for experience operations
+- **Storage**: Reads from `storage/transformed/`, writes to `storage/transformed/`
 
 ## Quick Start
 
-### 1. Installation
-
+### 1. Start Transformation Engine
 ```bash
+cd transformationEngine
 pip install -r requirements.txt
+python start.py
 ```
 
-### 2. Start the Server
+The transformation engine will start on `http://localhost:8001`
 
+### 2. Test the System
 ```bash
-uvicorn app.main:app --reload
+python test_transformation_engine.py
 ```
 
-### 3. Test the API
+### 3. API Documentation
+- Transformation Engine: http://localhost:8001/docs
+- Parsing Engine: http://localhost:8002/docs (when running)
+- Experience Engine: http://localhost:8003/docs (when running)
 
+## File Processing Flow
+
+1. **Input**: Files are placed in `storage/input/`
+2. **Processing**: Engines process files from `storage/input/`
+3. **Output**: Processed files are saved to `storage/transformed/`
+4. **Logs**: All operations are logged to `storage/logs/`
+
+## Example Usage
+
+### Transform a Parquet File
 ```bash
-# Test with curl
-curl -X POST 'http://localhost:8000/transform' \
-  -F 'data_file=@sample_data.csv' \
-  -F 'mapping_file=@mapping_example.json' \
-  -F 'output_format=csv'
-```
+# Place input file
+cp your_data.parquet storage/input/lsad.parquet
 
-### 4. View Documentation
-
-Visit `http://localhost:8000/docs` for interactive API documentation.
-
-## API Usage
-
-### Endpoint
-
-**POST** `/transform` - Transform data using uploaded files
-
-### Parameters
-
-- `data_file` (file): Input data file (CSV, Parquet, or JSON)
-- `mapping_file` (file): JSON file containing transformation mappings
-- `output_format` (string): Output format (csv, json, xlsx, xml, fixed_width)
-- `output_path` (string, optional): Output file path
-
-### Response
-
-```json
-{
-  "status": "success",
-  "run_id": "20250911_143022",
-  "input_rows": 1000,
-  "output_rows": 1000,
-  "processing_time_ms": 1250.5,
-  "throughput_rows_per_sec": 800,
-  "output_path": "output/run_20250911_143022/output_20250911_143022.csv",
-  "input_file": "sample_data.csv",
-  "output_format": "csv"
-}
-```
-
-## Mapping Configuration
-
-Create a JSON file with your transformation mappings:
-
-```json
-{
-  "mappings": [
-    {
-      "target": "full_name",
-      "source": "first_name,last_name",
-      "transform": "trns: STRING[CONCAT(attr('first_name'), ' ', attr('last_name'))]"
-    },
-    {
-      "target": "email_clean",
-      "source": "email",
-      "transform": "trns: STRING[TRIM(ATTR(email))]"
-    },
-    {
-      "target": "age_group",
-      "source": "age",
-      "transform": "trns: LOGICAL[IF(attr('age') >= 18, 'Adult', 'Minor')]"
+# Send transformation request
+curl -X POST "http://localhost:8001/transform-file" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input_filename": "lsad.parquet",
+    "output_filename": "lsad_transformed.json",
+    "output_format": "json",
+    "mapping_config": {
+      "mappings": [
+        {
+          "target": "full_name",
+          "source": "firstName,lastName",
+          "transform": "trns: STRING[CONCAT(attr(\"firstName\"), \" \", attr(\"lastName\"))]"
+        }
+      ]
     }
-  ]
-}
+  }'
+
+# Check output
+ls storage/transformed/
 ```
 
-### Mapping Fields
+## Storage Structure
 
-- `target`: Name of the output column
-- `source`: Source column(s) - comma-separated for multiple columns
-- `transform`: Transformation expression (optional)
-- `default`: Default value if source is missing (optional)
+### Input Files (`storage/input/`)
+- Raw data files in various formats (CSV, Parquet, JSON, XLSX, XML)
+- Files are processed by engines based on API requests
+- Example: `lsad.parquet`, `customer_data.csv`
 
-## Advanced Transformation Language
+### Transformed Files (`storage/transformed/`)
+- Processed and transformed data files
+- Output format depends on the transformation request
+- Example: `lsad.json`, `customer_data_transformed.xlsx`
 
-The ETL Engine v1 features an advanced parsing tree system that handles complex transformation expressions with proper precedence and dependency resolution.
+### Log Files (`storage/logs/`)
+- Detailed logs from all engines
+- Timestamped with run IDs for traceability
+- Example: `etl_20250913_133500_abc123.log`
 
-### Parsing Tree Features
+## Inter-Engine Communication
 
-- **Dependency Resolution**: Automatically determines execution order based on expression dependencies
-- **Precedence Handling**: Proper operator precedence for complex nested expressions
-- **Circular Dependency Detection**: Prevents infinite loops in transformation expressions
-- **Fallback Parser**: Falls back to original parser for maximum compatibility
-
-### Basic Operations
-
-- `to_int`, `to_float`, `to_str`, `to_bool` - Type conversions
-- `trim`, `upper`, `lower` - String operations
-- `date_format('YYYY-MM-DD')` - Date formatting
-
-### Advanced Operations
-
-- **STRING**: `CONCAT`, `SUBSTR`, `REPLACE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`, `ENDSWITH`, `STARTSWITH`, `CONTAINS`
-- **MATH**: `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `ROUND`, `ABS`
-- **LOGICAL**: `IF`, `AND`, `OR`, `NOT`
-- **DATE**: `FORMAT`, `PARSE`, `ADD_DAYS`, `SUB_DAYS`, `DIFF_DAYS`, `CURRENT_DATE`, `EXTRACT`
-- **ARRAY**: `JOIN`, `SPLIT`, `LENGTH`, `GET`
-- **FILTERS**: `INCLUDE_IF`, `EXCLUDE_IF`, `LIMIT`, `OFFSET`
-
-### Examples
-
-#### Simple Field Mapping
-```json
-{
-  "target": "full_name",
-  "source": "first_name,last_name",
-  "transform": "trns: STRING[CONCAT(attr('first_name'), ' ', attr('last_name'))]"
-}
-```
-
-#### Conditional Logic
-```json
-{
-  "target": "is_adult",
-  "source": "age",
-  "transform": "trns: LOGICAL[IF(GT(attr('age'), 18), 'Yes', 'No')]"
-}
-```
-
-#### Date Formatting
-```json
-{
-  "target": "formatted_date",
-  "source": "dob",
-  "transform": "trns: DATE[FORMAT(attr('dob'), 'YYYY-MM-DD')]"
-}
-```
-
-#### Complex Nested Expressions
-```json
-{
-  "target": "employee_status",
-  "source": "is_active,department,age",
-  "transform": "trns: LOGICAL[IF(AND(attr('is_active'), EQ(attr('department'), 'IT')), 'Active IT', IF(attr('is_active'), 'Active Other', 'Inactive'))]"
-}
-```
-
-#### String Pattern Matching
-```json
-{
-  "target": "email_status",
-  "source": "email",
-  "transform": "trns: LOGICAL[IF(ENDSWITH(TRIM(ATTR(email)), '@mail.com'), 'TO BE', 'DLA;KJD')]"
-}
-```
-
-#### Mathematical Operations
-```json
-{
-  "target": "bonus_calculation",
-  "source": "salary,performance_score",
-  "transform": "trns: MATH[MUL(DIV(attr('salary'), 100), attr('performance_score'))]"
-}
-```
-
-## Supported File Types
-
-### Input
-- **CSV** - Comma-separated values
-- **Parquet** - Columnar format with automatic struct flattening
-- **JSON** - JSON and JSONL formats
-
-### Output
-- **CSV** - Comma-separated values
-- **JSON** - Newline-delimited JSON (JSONL)
-- **JSON Array** - Traditional JSON array format
-- **Excel** - XLSX format with automatic chunking for large datasets
-- **XML** - Customizable XML with configurable tags
-- **Fixed-Width** - Fixed-width text format
-
-## Project Structure
-
-```
-etl_engine/
-├── app/
-│   ├── main.py              # FastAPI application
-│   ├── reader.py            # Data reading logic
-│   ├── transformer.py       # Data transformation logic
-│   ├── writer.py            # Output writing logic
-│   ├── utils.py             # Utility functions
-│   ├── exceptions.py        # Custom exceptions
-│   └── logger.py            # Logging configuration
-├── mapping_example.json     # Example mapping configuration
-├── requirements.txt         # Python dependencies
-└── README.md               # This file
-```
-
-## Testing
-
-Run the test script to verify everything works:
-
-```bash
-python test_etl_v1.py
-```
-
-This will:
-1. Create sample data
-2. Test all components
-3. Generate example output files
-4. Show you how to use the API
-
-## Error Handling
-
-The API provides detailed error messages for:
-- Invalid file formats
-- Malformed mapping configurations
-- Transformation failures
-- Output writing errors
-- Missing required fields
-
-## Performance Features
-
-- **Chunked Processing**: Large Excel files are automatically split into sheets
-- **Memory Efficient**: Uses Polars for fast, memory-efficient data processing
-- **Parallel Processing**: Polars provides parallel execution where possible
-- **Auto-cleanup**: Temporary files are automatically cleaned up after processing
-
-## Examples
-
-### Simple Field Mapping
-
-```json
-{
-  "mappings": [
-    {
-      "target": "customer_name",
-      "source": "name"
-    }
-  ]
-}
-```
-
-### String Concatenation
-
-```json
-{
-  "mappings": [
-    {
-      "target": "full_address",
-      "source": "street,city,state",
-      "transform": "trns: STRING[CONCAT(attr('street'), ', ', attr('city'), ', ', attr('state'))]"
-    }
-  ]
-}
-```
-
-### Conditional Logic
-
-```json
-{
-  "mappings": [
-    {
-      "target": "status",
-      "source": "age",
-      "transform": "trns: LOGICAL[IF(attr('age') >= 18, 'Adult', 'Minor')]"
-    }
-  ]
-}
-```
-
-### Data Filtering
-
-```json
-{
-  "mappings": [
-    {
-      "target": "filtered_data",
-      "source": "all_data",
-      "transform": "trns: FILTERS[INCLUDE_IF(attr('age') >= 18)]"
-    }
-  ]
-}
-```
+Engines communicate through:
+1. **Shared Storage**: Files in `storage/` directory
+2. **REST APIs**: HTTP requests between engines
+3. **Logging**: Centralized logging in `storage/logs/`
 
 ## Development
 
-### Code Quality
+### Adding New Engines
+1. Create new engine directory (e.g., `newEngine/`)
+2. Implement FastAPI application
+3. Use shared storage for file I/O
+4. Add to this README
 
-- Type hints throughout the codebase
-- Comprehensive error handling
-- Detailed logging
-- Clean separation of concerns
+### Modifying Transformation Engine
+1. Edit files in `transformationEngine/app/`
+2. Test with `test_transformation_engine.py`
+3. Update `transformationEngine/README.md`
 
-### Running Tests
+## Monitoring
 
-```bash
-python test_etl_v1.py
-```
+- **Health Checks**: Each engine provides `/health` endpoint
+- **Logs**: Centralized in `storage/logs/`
+- **File Tracking**: Monitor `storage/input/` and `storage/transformed/`
 
-## License
+## Troubleshooting
 
-This project is open source and available under the MIT License.
+### Common Issues
+1. **Port Conflicts**: Ensure each engine uses different ports
+2. **File Permissions**: Check read/write access to `storage/` directory
+3. **Dependencies**: Install requirements for each engine
+4. **Path Issues**: Use relative paths from engine directories
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Debug Steps
+1. Check engine health: `curl http://localhost:8001/health`
+2. Check logs: `ls storage/logs/`
+3. Check file permissions: `ls -la storage/`
+4. Test with sample data: `python test_transformation_engine.py`
