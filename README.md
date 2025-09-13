@@ -101,7 +101,16 @@ Create a JSON file with your transformation mappings:
 - `transform`: Transformation expression (optional)
 - `default`: Default value if source is missing (optional)
 
-## Transformation Language
+## Advanced Transformation Language
+
+The ETL Engine v1 features an advanced parsing tree system that handles complex transformation expressions with proper precedence and dependency resolution.
+
+### Parsing Tree Features
+
+- **Dependency Resolution**: Automatically determines execution order based on expression dependencies
+- **Precedence Handling**: Proper operator precedence for complex nested expressions
+- **Circular Dependency Detection**: Prevents infinite loops in transformation expressions
+- **Fallback Parser**: Falls back to original parser for maximum compatibility
 
 ### Basic Operations
 
@@ -120,6 +129,7 @@ Create a JSON file with your transformation mappings:
 
 ### Examples
 
+#### Simple Field Mapping
 ```json
 {
   "target": "full_name",
@@ -128,19 +138,39 @@ Create a JSON file with your transformation mappings:
 }
 ```
 
+#### Conditional Logic
 ```json
 {
   "target": "is_adult",
   "source": "age",
-  "transform": "trns: LOGICAL[IF(attr('age') >= 18, 'Yes', 'No')]"
+  "transform": "trns: LOGICAL[IF(GT(attr('age'), 18), 'Yes', 'No')]"
 }
 ```
 
+#### Date Formatting
 ```json
 {
   "target": "formatted_date",
   "source": "dob",
   "transform": "trns: DATE[FORMAT(attr('dob'), 'YYYY-MM-DD')]"
+}
+```
+
+#### Complex Nested Expressions
+```json
+{
+  "target": "employee_status",
+  "source": "is_active,department,age",
+  "transform": "trns: LOGICAL[IF(AND(attr('is_active'), EQ(attr('department'), 'IT')), 'Active IT', IF(attr('is_active'), 'Active Other', 'Inactive'))]"
+}
+```
+
+#### Mathematical Operations
+```json
+{
+  "target": "bonus_calculation",
+  "source": "salary,performance_score",
+  "transform": "trns: MATH[MUL(DIV(attr('salary'), 100), attr('performance_score'))]"
 }
 ```
 
