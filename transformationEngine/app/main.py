@@ -1,9 +1,10 @@
 import os
 import json
 import time
+import polars as pl
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from .logger import get_logger
 from .reader import read_data_file, read_data_file_with_schema
 from .transformer import apply_transformations_from_rules
@@ -12,54 +13,11 @@ from .exceptions import ETLError, MappingError, TransformError, ValidationError,
 from .utils import timestamp_run_id
 from .error_handler import TransformationErrorHandler, create_error_response
 
-def convert_new_schema_format(schema: dict) -> dict:
-    """
-    Convert new schema format to the format expected by reader/writer functions.
-    
-    New format:
-    {
-        "role": "source",
-        "fileType": "csv",
-        "schemaId": "schm-csv-1001",
-        "schemaName": "customer_csv_v1",
-        "attributes": {
-            "first_name": {
-                "name": "first_name",
-                "dataType": "string",
-                "column_no": 1
-            }
-        }
-    }
-    
-    Converts to:
-    {
-        "first_name": {
-            "name": "first_name",
-            "dataType": "string",
-            "column_no": 1
-        }
-    }
-    """
-    if not schema or "attributes" not in schema:
-        return schema
-    
-    # Extract the attributes section
-    converted_schema = schema["attributes"].copy()
-    
-    # Add metadata if needed
-    converted_schema["_metadata"] = {
-        "role": schema.get("role"),
-        "fileType": schema.get("fileType"),
-        "schemaId": schema.get("schemaId"),
-        "schemaName": schema.get("schemaName")
-    }
-    
-    return converted_schema
 
 class UnifiedTransformRequest(BaseModel):
     # Required parameters only - minimal format
-    source_file_path: str  # Full path to the parquet file
-    source_schema: dict    # Source schema as JSON object with new format
+    source_file_path: str  # Full path to the parquet file (ONLY parquet allowed)
+    source_schema: dict    # Source schema as JSON object (MANDATORY for proper parquet reading)
     target_schema: dict    # Target schema as JSON object with new format
     transformation_mapping: dict  # Transformation mapping as JSON object
 
@@ -90,18 +48,21 @@ async def health_check():
     """Health check endpoint to verify the service is running."""
     return {"status": "healthy", "service": "ETL Engine v1", "version": "1.0.0"}
 
+
 @app.post("/transform")
 async def transform_data(request: UnifiedTransformRequest):
     """
-    Minimal ETL transformation endpoint with required parameters only.
+    ETL transformation endpoint for Parquet files only.
     
     Required Parameters:
-    - source_file_path: Full path to the parquet file
-    - source_schema: Source schema as JSON object with new format
+    - source_file_path: Full path to the parquet file (ONLY .parquet files allowed)
+    - source_schema: Source schema as JSON object (MANDATORY for proper parquet reading)
     - target_schema: Target schema as JSON object with new format  
     - transformation_mapping: Transformation mapping as JSON object
     
-    New Schema Format Support:
+    Important Notes:
+    - Only Parquet files are accepted as input
+    - Source schema is mandatory (parquet files may be converted from fixed-width/XML and need schema)
     - Source/Target schemas use the new format with role, fileType, schemaId, schemaName, attributes
     - Transformation mapping uses the new format with mappingId, mappingName, sourceSchemaId, targetSchemaId, rules
     
@@ -122,29 +83,42 @@ async def transform_data(request: UnifiedTransformRequest):
         source_file_path = request.source_file_path
         logger.info(f"Using source file path: {source_file_path}")
         
-        # Validate source file exists
+        # Validate source file exists and is parquet
         if not os.path.exists(source_file_path):
             raise HTTPException(status_code=404, detail=f"Source file not found: {source_file_path}")
         
-        # Use the required source schema
+        # Validate that source file is parquet format
+        if not source_file_path.lower().endswith('.parquet'):
+            raise HTTPException(status_code=400, detail="Only parquet files are allowed as input. Please provide a .parquet file.")
+        
+        # Use the required source schema (mandatory for parquet files)
         source_schema = request.source_schema
-        logger.info("Using source schema")
-        # Convert new schema format if needed
-        if "attributes" in source_schema:
-            source_schema = convert_new_schema_format(source_schema)
-            logger.info("Converted source schema to internal format")
+        logger.info("Using provided source schema for parquet file reading")
         
         # Use the required target schema
         target_schema = request.target_schema
         logger.info("Using target schema")
-        # Convert new schema format if needed
-        if "attributes" in target_schema:
-            target_schema = convert_new_schema_format(target_schema)
-            logger.info("Converted target schema to internal format")
         
         # Use the required transformation mapping
         transformation_mapping = request.transformation_mapping
         logger.info("Using transformation mapping")
+        
+        # Determine output format from target schema
+        output_format = "json"  # Default format
+        if target_schema and "fileType" in target_schema:
+            file_type = target_schema.get("fileType", "").lower()
+            if file_type == "fixedwidth":
+                output_format = "fixed_width"
+            elif file_type in ["csv", "xlsx", "xml", "json", "jsonl"]:
+                output_format = file_type
+            elif file_type == "positional":
+                output_format = "fixed_width"  # Positional is a type of fixed-width
+            else:
+                output_format = "json"
+        
+        logger.info(f"Target output format determined: {output_format}")
+        logger.info(f"Target schema file type: {target_schema.get('fileType', 'unknown')}")
+        logger.info(f"Target schema attributes count: {len(target_schema.get('attributes', {}))}")
         
         # Extract rules from transformation mapping
         try:
@@ -184,24 +158,43 @@ async def transform_data(request: UnifiedTransformRequest):
         logger.info(f"  Source: {source_file_path}")
         logger.info(f"  Output: {output_path}")
         
-        # Read source data
+        # Read parquet file using source schema (mandatory)
         try:
-            if source_schema:
-                df = read_data_file_with_schema(source_file_path, source_schema)
-            else:
-                df = read_data_file(source_file_path)
-            logger.info(f"Source data loaded: {df.shape[0]} rows, {df.shape[1]} columns")
+            # Always use source schema for parquet files (converted from fixed-width/XML need proper schema)
+            logger.info("Reading parquet file using provided source schema")
+            logger.info(f"Source schema file type: {source_schema.get('fileType', 'unknown')}")
+            logger.info(f"Source schema attributes count: {len(source_schema.get('attributes', {}))}")
+            
+            df = read_data_file_with_schema(source_file_path, source_schema)
+            logger.info(f"Parquet data loaded with schema: {df.shape[0]} rows, {df.shape[1]} columns")
+            
+            # Log column information for debugging
+            logger.info(f"Available columns: {list(df.columns)}")
+            logger.info(f"DataFrame schema: {df.schema}")
+            logger.info(f"DataFrame shape: {df.shape}")
+            
+            # Log source format information for tracking
+            original_format = source_schema.get('fileType', 'unknown')
+            logger.info(f"Original source format before parquet conversion: {original_format}")
+            logger.info("Parquet file is ready for processing with proper schema-based field mapping")
+            
         except Exception as e:
             logger.error(f"Failed to read source data: {e}")
             raise HTTPException(status_code=400, detail=f"Failed to read source data: {e}")
         
         # Apply transformations
         try:
+            logger.info(f"About to apply transformations. DataFrame shape: {df.shape}")
+            logger.info(f"Rules count: {len(rules)}")
+            logger.info(f"DataFrame columns: {list(df.columns)}")
+            
             error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
             transformed_df = apply_transformations_from_rules(df, rules, error_handler)
             logger.info(f"Transformations applied: {transformed_df.shape[0]} rows, {transformed_df.shape[1]} columns")
         except Exception as e:
             logger.error(f"Transformation failed: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             
             # Create error file
             error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
@@ -225,17 +218,6 @@ async def transform_data(request: UnifiedTransformRequest):
         
         # Write output
         try:
-            # Determine output format from target schema
-            output_format = "json"  # Default format
-            if target_schema and "_metadata" in target_schema:
-                file_type = target_schema["_metadata"].get("fileType", "").lower()
-                if file_type == "fixedwidth":
-                    output_format = "fixed_width"
-                elif file_type in ["csv", "xlsx", "xml"]:
-                    output_format = file_type
-                else:
-                    output_format = "json"
-            
             # Use target schema for writing
             mapping_config = {
                 "targetSchema": target_schema,
@@ -256,7 +238,7 @@ async def transform_data(request: UnifiedTransformRequest):
             f.write(f"ETL Run ID: {run_id}\n")
             f.write(f"Source File: {source_file_path}\n")
             f.write(f"Output File: {output_filename_with_timestamp}\n")
-            f.write(f"Output Format: {request.output_format}\n")
+            f.write(f"Output Format: {output_format}\n")
             f.write(f"Rows Processed: {transformed_df.shape[0]}\n")
             f.write(f"Columns Output: {transformed_df.shape[1]}\n")
             f.write(f"Processing Time: {processing_time:.2f} seconds\n")
@@ -284,3 +266,7 @@ async def transform_data(request: UnifiedTransformRequest):
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

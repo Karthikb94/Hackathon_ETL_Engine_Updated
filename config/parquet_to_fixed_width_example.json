@@ -1,0 +1,149 @@
+{
+  "description": "Example configuration for transforming parquet input to fixed-width output",
+  "source_file_path": "../storage/input/test_data.parquet",
+  "source_schema": {
+    "role": "source",
+    "fileType": "fixedwidth",
+    "schemaId": "employee_source_schema",
+    "schemaName": "Employee Source Schema (Original Fixed-Width Format)",
+    "attributes": {
+      "employee_id": {
+        "dataType": "integer",
+        "column_no": 1,
+        "start_position": 0,
+        "width": 8,
+        "description": "Employee ID"
+      },
+      "first_name": {
+        "dataType": "string",
+        "column_no": 2,
+        "start_position": 8,
+        "width": 15,
+        "description": "First name"
+      },
+      "last_name": {
+        "dataType": "string",
+        "column_no": 3,
+        "start_position": 23,
+        "width": 15,
+        "description": "Last name"
+      },
+      "department": {
+        "dataType": "string",
+        "column_no": 4,
+        "start_position": 38,
+        "width": 20,
+        "description": "Department"
+      },
+      "salary": {
+        "dataType": "float",
+        "column_no": 5,
+        "start_position": 58,
+        "width": 10,
+        "description": "Annual salary"
+      },
+      "hire_date": {
+        "dataType": "date",
+        "column_no": 6,
+        "start_position": 68,
+        "width": 10,
+        "description": "Hire date"
+      },
+      "is_manager": {
+        "dataType": "boolean",
+        "column_no": 7,
+        "start_position": 78,
+        "width": 1,
+        "description": "Manager flag"
+      }
+    }
+  },
+  "target_schema": {
+    "role": "target",
+    "fileType": "fixedwidth",
+    "schemaId": "employee_report_schema",
+    "schemaName": "Employee Report Schema",
+    "attributes": {
+      "employee_id": {
+        "dataType": "integer",
+        "column_no": 1,
+        "width": 10,
+        "alignment": "right"
+      },
+      "full_name": {
+        "dataType": "string",
+        "column_no": 2,
+        "width": 25,
+        "alignment": "left"
+      },
+      "department": {
+        "dataType": "string",
+        "column_no": 3,
+        "width": 20,
+        "alignment": "left"
+      },
+      "formatted_salary": {
+        "dataType": "string",
+        "column_no": 4,
+        "width": 15,
+        "alignment": "right"
+      },
+      "years_employed": {
+        "dataType": "integer",
+        "column_no": 5,
+        "width": 8,
+        "alignment": "right"
+      },
+      "role_level": {
+        "dataType": "string",
+        "column_no": 6,
+        "width": 12,
+        "alignment": "left"
+      }
+    }
+  },
+  "transformation_mapping": {
+    "mappingId": "employee_transformation_mapping",
+    "mappingName": "Employee Data Transformation",
+    "sourceSchemaId": "employee_source_schema",
+    "targetSchemaId": "employee_report_schema",
+    "rules": [
+      {
+        "id": "rule_1",
+        "affected_source": ["employee_id"],
+        "affected_target": "employee_id",
+        "trns": "attr('employee_id')"
+      },
+      {
+        "id": "rule_2",
+        "affected_source": ["first_name", "last_name"],
+        "affected_target": "full_name",
+        "trns": "STRING[CONCAT(attr('last_name'), ', ', attr('first_name'))]"
+      },
+      {
+        "id": "rule_3",
+        "affected_source": ["department"],
+        "affected_target": "department",
+        "trns": "STRING[UPPER(attr('department'))]"
+      },
+      {
+        "id": "rule_4",
+        "affected_source": ["salary"],
+        "affected_target": "formatted_salary",
+        "trns": "STRING[CONCAT('$', MATH[ROUND(attr('salary'), 2)])]"
+      },
+      {
+        "id": "rule_5",
+        "affected_source": ["hire_date"],
+        "affected_target": "years_employed",
+        "trns": "MATH[ROUND(DATE[SUB_DAYS('2024-01-01', attr('hire_date'))] / 365, 0)]"
+      },
+      {
+        "id": "rule_6",
+        "affected_source": ["is_manager", "salary"],
+        "affected_target": "role_level",
+        "trns": "LOGICAL[IF(attr('is_manager'), 'MANAGER', LOGICAL[IF(attr('salary') > 75000, 'SENIOR', 'JUNIOR')])]"
+      }
+    ]
+  }
+}

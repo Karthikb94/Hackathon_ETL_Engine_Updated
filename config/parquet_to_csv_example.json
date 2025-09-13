@@ -1,0 +1,168 @@
+{
+  "description": "Example configuration for transforming parquet input to CSV output",
+  "source_file_path": "../storage/input/test_data.parquet",
+  "source_schema": {
+    "role": "source",
+    "fileType": "csv",
+    "schemaId": "customer_source_schema",
+    "schemaName": "Customer Source Schema (Original CSV Format)",
+    "attributes": {
+      "customer_id": {
+        "dataType": "integer",
+        "column_no": 1,
+        "description": "Unique customer identifier"
+      },
+      "first_name": {
+        "dataType": "string",
+        "column_no": 2,
+        "description": "Customer first name"
+      },
+      "last_name": {
+        "dataType": "string",
+        "column_no": 3,
+        "description": "Customer last name"
+      },
+      "email": {
+        "dataType": "string",
+        "column_no": 4,
+        "description": "Customer email address"
+      },
+      "phone": {
+        "dataType": "string",
+        "column_no": 5,
+        "description": "Customer phone number"
+      },
+      "city": {
+        "dataType": "string",
+        "column_no": 6,
+        "description": "Customer city"
+      },
+      "state": {
+        "dataType": "string",
+        "column_no": 7,
+        "description": "Customer state"
+      },
+      "zip_code": {
+        "dataType": "string",
+        "column_no": 8,
+        "description": "Customer ZIP code"
+      },
+      "registration_date": {
+        "dataType": "date",
+        "column_no": 9,
+        "description": "Customer registration date"
+      },
+      "total_orders": {
+        "dataType": "integer",
+        "column_no": 10,
+        "description": "Total number of orders"
+      },
+      "total_spent": {
+        "dataType": "float",
+        "column_no": 11,
+        "description": "Total amount spent"
+      },
+      "is_premium": {
+        "dataType": "boolean",
+        "column_no": 12,
+        "description": "Premium customer flag"
+      }
+    }
+  },
+  "target_schema": {
+    "role": "target",
+    "fileType": "csv",
+    "schemaId": "customer_csv_schema",
+    "schemaName": "Customer CSV Output Schema",
+    "attributes": {
+      "customer_id": {
+        "dataType": "integer",
+        "column_no": 1
+      },
+      "full_name": {
+        "dataType": "string",
+        "column_no": 2
+      },
+      "email": {
+        "dataType": "string",
+        "column_no": 3
+      },
+      "phone": {
+        "dataType": "string",
+        "column_no": 4
+      },
+      "location": {
+        "dataType": "string",
+        "column_no": 5
+      },
+      "registration_date": {
+        "dataType": "date",
+        "column_no": 6
+      },
+      "order_summary": {
+        "dataType": "string",
+        "column_no": 7
+      },
+      "customer_tier": {
+        "dataType": "string",
+        "column_no": 8
+      }
+    }
+  },
+  "transformation_mapping": {
+    "mappingId": "customer_transformation_mapping",
+    "mappingName": "Customer Data Transformation",
+    "sourceSchemaId": "customer_source_schema",
+    "targetSchemaId": "customer_csv_schema",
+    "rules": [
+      {
+        "id": "rule_1",
+        "affected_source": ["customer_id"],
+        "affected_target": "customer_id",
+        "trns": "attr('customer_id')"
+      },
+      {
+        "id": "rule_2",
+        "affected_source": ["first_name", "last_name"],
+        "affected_target": "full_name",
+        "trns": "STRING[CONCAT(attr('first_name'), ' ', attr('last_name'))]"
+      },
+      {
+        "id": "rule_3",
+        "affected_source": ["email"],
+        "affected_target": "email",
+        "trns": "STRING[UPPER(attr('email'))]"
+      },
+      {
+        "id": "rule_4",
+        "affected_source": ["phone"],
+        "affected_target": "phone",
+        "trns": "STRING[REPLACE(attr('phone'), '-', '.')]"
+      },
+      {
+        "id": "rule_5",
+        "affected_source": ["city", "state", "zip_code"],
+        "affected_target": "location",
+        "trns": "STRING[CONCAT(attr('city'), ', ', attr('state'), ' ', attr('zip_code'))]"
+      },
+      {
+        "id": "rule_6",
+        "affected_source": ["registration_date"],
+        "affected_target": "registration_date",
+        "trns": "attr('registration_date')"
+      },
+      {
+        "id": "rule_7",
+        "affected_source": ["total_orders", "total_spent"],
+        "affected_target": "order_summary",
+        "trns": "STRING[CONCAT(attr('total_orders'), ' orders, $', attr('total_spent'))]"
+      },
+      {
+        "id": "rule_8",
+        "affected_source": ["is_premium"],
+        "affected_target": "customer_tier",
+        "trns": "LOGICAL[IF(attr('is_premium'), 'Premium', 'Standard')]"
+      }
+    ]
+  }
+}

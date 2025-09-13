@@ -84,18 +84,22 @@ def write_xlsx(df: pl.DataFrame, path: str):
         raise WriterError(f"Failed to write XLSX: {e}") from e
 
 def write_xml(df: pl.DataFrame, path: str, root_tag: str = "records", row_tag: str = "record"):
-    """Write DataFrame as XML file."""
+    """Write DataFrame as XML file with proper encoding and formatting."""
     ensure_parent(path)
     try:
         with open(path, "w", encoding="utf-8") as f:
+            # Write XML declaration
+            f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
             f.write(f"<{root_tag}>\n")
             cols = df.columns
             for row in df.iter_rows(named=True):
-                f.write(f"  <{row_tag}>")
+                f.write(f"  <{row_tag}>\n")
                 for c in cols:
                     v = "" if row[c] is None else str(row[c])
-                    f.write(f"<{c}>{escape(v)}</{c}>")
-                f.write(f"</{row_tag}>\n")
+                    # Escape XML special characters
+                    escaped_v = escape(v)
+                    f.write(f"    <{c}>{escaped_v}</{c}>\n")
+                f.write(f"  </{row_tag}>\n")
             f.write(f"</{root_tag}>\n")
     except Exception as e:
         raise WriterError(f"Failed to write XML: {e}") from e
@@ -150,6 +154,7 @@ def write_fixed_width(df: pl.DataFrame, path: str, mappings: List[Dict[str, Any]
 def write_fixed_width_with_schema(df: pl.DataFrame, path: str, target_schema: Dict[str, Any], logger: Optional[Any] = None):
     """
     Write DataFrame as fixed-width file using target schema definitions.
+    Enhanced to handle both fixed-width and positional formats.
     
     Args:
         df: Input DataFrame
@@ -162,6 +167,11 @@ def write_fixed_width_with_schema(df: pl.DataFrame, path: str, target_schema: Di
     # Extract field definitions from target schema
     field_defs = []
     attributes = target_schema.get("attributes", {})
+    file_type = target_schema.get("fileType", "").lower()
+    
+    if logger:
+        logger.info(f"Writing fixed-width file with {len(attributes)} fields")
+        logger.info(f"Target schema file type: {file_type}")
     
     # Sort fields by column_no to maintain order
     sorted_fields = sorted(attributes.items(), key=lambda x: x[1].get("column_no", 0))
@@ -171,7 +181,9 @@ def write_fixed_width_with_schema(df: pl.DataFrame, path: str, target_schema: Di
         width = field_config.get("width", 20)
         # Get start position for padding (optional)
         start_pos = field_config.get("start_position", 0)
-        field_defs.append((field_name, width, start_pos))
+        # Get alignment preference (left, right, center)
+        alignment = field_config.get("alignment", "left").lower()
+        field_defs.append((field_name, width, start_pos, alignment))
     
     try:
         with open(path, "w", encoding="utf-8") as f:
@@ -179,7 +191,7 @@ def write_fixed_width_with_schema(df: pl.DataFrame, path: str, target_schema: Di
                 line_parts = []
                 current_pos = 0
                 
-                for field_name, width, start_pos in field_defs:
+                for field_name, width, start_pos, alignment in field_defs:
                     val = row.get(field_name, "")
                     s = "" if val is None else str(val)
                     
@@ -195,17 +207,27 @@ def write_fixed_width_with_schema(df: pl.DataFrame, path: str, target_schema: Di
                         line_parts.append(padding)
                         current_pos = start_pos
                     
-                    # Right-align numeric, left-align text
-                    try:
-                        float(s)
+                    # Apply alignment based on field configuration
+                    if alignment == "right":
                         aligned = s.rjust(width)
-                    except:
-                        aligned = s.ljust(width)
+                    elif alignment == "center":
+                        aligned = s.center(width)
+                    else:  # left alignment (default)
+                        # For numeric values, right-align; for text, left-align
+                        try:
+                            float(s)
+                            aligned = s.rjust(width)
+                        except:
+                            aligned = s.ljust(width)
                     
                     line_parts.append(aligned)
                     current_pos += width
                 
                 f.write("".join(line_parts) + "\n")
+                
+        if logger:
+            logger.info(f"Successfully wrote fixed-width file: {path}")
+            
     except Exception as e:
         raise WriterError(f"Failed to write fixed-width file with schema: {e}") from e
 

@@ -1,0 +1,21 @@
+customer_id,customer_name,email,phone,street,city,state,zipcode,order_id,product,quantity,price,order_date,newsletter,categories,loyalty_points,vip_status,total_spent,registration_date
+1,Customer_1,customer1@example.com,+1-555-1001,101 Main St,Los Angeles,CA,10001,ORD-1-1,Product_1,2,10.5,2023-02-02,false,"Electronics,Books",10,false,75.5,2023-02-02
+2,Customer_2,customer2@example.com,+1-555-1002,102 Main St,Chicago,IL,10002,ORD-2-1,Product_1,3,11.0,2023-03-02,true,"Electronics,Books,Clothing",20,false,101.0,2023-03-03
+3,Customer_3,customer3@example.com,+1-555-1003,103 Main St,Houston,TX,10003,ORD-3-1,Product_1,4,11.5,2023-04-02,false,"Electronics,Books,Clothing,Home",30,false,126.5,2023-04-04
+4,Customer_4,customer4@example.com,+1-555-1004,104 Main St,New York,NY,10004,ORD-4-1,Product_1,5,12.0,2023-05-02,true,Electronics,40,false,152.0,2023-05-05
+5,Customer_5,customer5@example.com,+1-555-1005,105 Main St,Los Angeles,CA,10005,ORD-5-1,Product_1,6,12.5,2023-06-02,false,"Electronics,Books",50,true,177.5,2023-06-06
+6,Customer_6,customer6@example.com,+1-555-1006,106 Main St,Chicago,IL,10006,ORD-6-1,Product_1,7,13.0,2023-07-02,true,"Electronics,Books,Clothing",60,false,203.0,2023-07-07
+7,Customer_7,customer7@example.com,+1-555-1007,107 Main St,Houston,TX,10007,ORD-7-1,Product_1,8,13.5,2023-08-02,false,"Electronics,Books,Clothing,Home",70,false,228.5,2023-08-08
+8,Customer_8,customer8@example.com,+1-555-1008,108 Main St,New York,NY,10008,ORD-8-1,Product_1,9,14.0,2023-09-02,true,Electronics,80,false,254.0,2023-09-09
+9,Customer_9,customer9@example.com,+1-555-1009,109 Main St,Los Angeles,CA,10009,ORD-9-1,Product_1,10,14.5,2023-10-02,false,"Electronics,Books",90,false,279.5,2023-10-10
+10,Customer_10,customer10@example.com,+1-555-1010,110 Main St,Chicago,IL,10010,ORD-10-1,Product_1,1,15.0,2023-11-02,true,"Electronics,Books,Clothing",100,true,305.0,2023-11-11
+11,Customer_11,customer11@example.com,+1-555-1011,111 Main St,Houston,TX,10011,ORD-11-1,Product_1,2,15.5,2023-12-02,false,"Electronics,Books,Clothing,Home",110,false,330.5,2023-12-12
+12,Customer_12,customer12@example.com,+1-555-1012,112 Main St,New York,NY,10012,ORD-12-1,Product_1,3,16.0,2023-01-02,true,Electronics,120,false,356.0,2023-01-13
+13,Customer_13,customer13@example.com,+1-555-1013,113 Main St,Los Angeles,CA,10013,ORD-13-1,Product_1,4,16.5,2023-02-02,false,"Electronics,Books",130,false,381.5,2023-02-14
+14,Customer_14,customer14@example.com,+1-555-1014,114 Main St,Chicago,IL,10014,ORD-14-1,Product_1,5,17.0,2023-03-02,true,"Electronics,Books,Clothing",140,false,407.0,2023-03-15
+15,Customer_15,customer15@example.com,+1-555-1015,115 Main St,Houston,TX,10015,ORD-15-1,Product_1,6,17.5,2023-04-02,false,"Electronics,Books,Clothing,Home",150,true,432.5,2023-04-16
+16,Customer_16,customer16@example.com,+1-555-1016,116 Main St,New York,NY,10016,ORD-16-1,Product_1,7,18.0,2023-05-02,true,Electronics,160,false,458.0,2023-05-17
+17,Customer_17,customer17@example.com,+1-555-1017,117 Main St,Los Angeles,CA,10017,ORD-17-1,Product_1,8,18.5,2023-06-02,false,"Electronics,Books",170,false,483.5,2023-06-18
+18,Customer_18,customer18@example.com,+1-555-1018,118 Main St,Chicago,IL,10018,ORD-18-1,Product_1,9,19.0,2023-07-02,true,"Electronics,Books,Clothing",180,false,509.0,2023-07-19
+19,Customer_19,customer19@example.com,+1-555-1019,119 Main St,Houston,TX,10019,ORD-19-1,Product_1,10,19.5,2023-08-02,false,"Electronics,Books,Clothing,Home",190,false,534.5,2023-08-20
+20,Customer_20,customer20@example.com,+1-555-1020,120 Main St,New York,NY,10020,ORD-20-1,Product_1,1,20.0,2023-09-02,true,Electronics,200,true,560.0,2023-09-21

@@ -721,6 +721,12 @@ def _build_expr_for_rule(df: pl.DataFrame, rule: Dict[str, Any]) -> Optional[pl.
     source_columns = rule.get("affected_source", [])
     transform = rule.get("trns", "")
     
+    # Processing transformation rule
+    
+    # Ensure source_columns is a list
+    if source_columns is None:
+        source_columns = []
+    
     # Check if source columns exist
     missing_columns = [col for col in source_columns if col not in df.columns]
     

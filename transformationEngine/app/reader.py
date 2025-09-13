@@ -30,6 +30,8 @@ def read_data_file_with_schema(file_path: str, source_schema: Dict[str, Any]) ->
             return _read_json_with_schema(file_path, attributes)
         elif file_type == "fixed_width":
             return _read_fixed_width_with_schema(file_path, attributes)
+        elif file_type == "xml":
+            return _read_xml_with_schema(file_path, attributes)
         else:
             # Fallback to extension-based reading
             return read_data_file(file_path)
@@ -70,30 +72,74 @@ def _read_csv_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.Data
     return df
 
 def _read_parquet_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.DataFrame:
-    """Read Parquet file with schema-based column ordering"""
-    df = pl.read_parquet(file_path)
+    """
+    Read Parquet file with schema-based column ordering and type casting.
+    Enhanced to handle parquet files converted from various formats (CSV, JSON, XML, fixed-width).
+    """
+    try:
+        df = pl.read_parquet(file_path)
+        # Successfully read Parquet file
+    except Exception as e:
+        # Error reading Parquet file
+        raise ReaderError(f"Failed to read parquet file: {e}")
     
-    # Reorder columns according to schema
-    schema_columns = []
-    for attr_name, attr_info in sorted(attributes.items(), 
-                                     key=lambda x: x[1].get("column_no", 999)):
-        if attr_name in df.columns:
-            schema_columns.append(attr_name)
-    
-    # Select columns in schema order
-    if schema_columns:
-        df = df.select(schema_columns)
+    # Apply schema-based column ordering and type casting
+    if attributes:
+        schema_columns = []
+        dtypes = {}
+        
+        # Sort attributes by column_no if available
+        sorted_attrs = sorted(attributes.items(), 
+                             key=lambda x: x[1].get("column_no", 999))
+        
+        for attr_name, attr_info in sorted_attrs:
+            if attr_name in df.columns:
+                schema_columns.append(attr_name)
+                
+                # Apply data type casting based on schema
+                data_type = attr_info.get("dataType", "string")
+                if data_type == "string":
+                    dtypes[attr_name] = pl.Utf8
+                elif data_type == "date":
+                    dtypes[attr_name] = pl.Date
+                elif data_type == "datetime":
+                    dtypes[attr_name] = pl.Datetime
+                elif data_type == "integer":
+                    dtypes[attr_name] = pl.Int64
+                elif data_type == "float":
+                    dtypes[attr_name] = pl.Float64
+                elif data_type == "boolean":
+                    dtypes[attr_name] = pl.Boolean
+        
+        # Select columns in schema order and cast types
+        if schema_columns:
+            df = df.select(schema_columns)
+            if dtypes:
+                # Apply type casting
+                cast_exprs = []
+                for col_name, dtype in dtypes.items():
+                    if col_name in df.columns:
+                        cast_exprs.append(pl.col(col_name).cast(dtype))
+                    else:
+                        cast_exprs.append(pl.col(col_name))
+                if cast_exprs:
+                    df = df.with_columns(cast_exprs)
+        
+        # Schema-ordered columns applied
     
     return df
 
 def _read_json_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.DataFrame:
-    """Read JSON file with schema-based column ordering"""
+    """Read JSON file with schema-based column ordering and nested structure handling"""
     try:
         # Try JSONL first
         df = pl.read_ndjson(file_path)
     except:
         # Fallback to regular JSON
         df = pl.read_json(file_path)
+    
+    # Auto-flatten nested structures first
+    df = auto_flatten_structs(df)
     
     # Reorder columns according to schema
     schema_columns = []
@@ -133,6 +179,67 @@ def _read_fixed_width_with_schema(file_path: str, attributes: Dict[str, Any]) ->
     
     return pl.DataFrame(data)
 
+def _read_xml_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.DataFrame:
+    """Read XML file with schema-based column extraction"""
+    try:
+        import xml.etree.ElementTree as ET
+    except ImportError:
+        raise ReaderError("XML parsing requires xml.etree.ElementTree")
+    
+    # Parse XML file
+    tree = ET.parse(file_path)
+    root = tree.getroot()
+    
+    data = []
+    
+    # Find all record elements (assuming records are direct children or in a specific path)
+    records = root.findall('.//record') if root.findall('.//record') else [root]
+    
+    for record in records:
+        row_data = {}
+        
+        for attr_name, attr_info in attributes.items():
+            # Try to find the element by tag name or xpath
+            element = record.find(attr_name)
+            if element is not None:
+                value = element.text.strip() if element.text else ""
+                
+                # Convert data type
+                data_type = attr_info.get("dataType", "string")
+                if data_type == "integer":
+                    try:
+                        value = int(value) if value else 0
+                    except ValueError:
+                        value = 0
+                elif data_type == "float":
+                    try:
+                        value = float(value) if value else 0.0
+                    except ValueError:
+                        value = 0.0
+                
+                row_data[attr_name] = value
+            else:
+                # Set default value if element not found
+                data_type = attr_info.get("dataType", "string")
+                if data_type == "integer":
+                    row_data[attr_name] = 0
+                elif data_type == "float":
+                    row_data[attr_name] = 0.0
+                else:
+                    row_data[attr_name] = ""
+        
+        data.append(row_data)
+    
+    # Create DataFrame from parsed data
+    if data:
+        df = pl.DataFrame(data)
+    else:
+        # Create empty DataFrame with expected columns
+        empty_data = {attr_name: [] for attr_name in attributes.keys()}
+        df = pl.DataFrame(empty_data)
+    
+    return df
+
 def read_data_file(file_path: str) -> pl.DataFrame:
     """
     Read data file and return as Polars DataFrame.
@@ -152,7 +259,12 @@ def read_data_file(file_path: str) -> pl.DataFrame:
         file_ext = os.path.splitext(file_path)[1].lower()
         
         if file_ext == '.parquet':
-            df = pl.read_parquet(file_path)
+            try:
+                df = pl.read_parquet(file_path)
+                # Successfully read Parquet file
+            except Exception as e:
+                # Error reading Parquet file
+                raise
         elif file_ext == '.csv':
             df = pl.read_csv(file_path)
         elif file_ext in ['.json', '.jsonl']:
@@ -162,6 +274,36 @@ def read_data_file(file_path: str) -> pl.DataFrame:
             except:
                 # Fallback to regular JSON
                 df = pl.read_json(file_path)
+        elif file_ext == '.xml':
+            # For XML files, we need a basic schema for auto-detection
+            # This is a simplified approach - in practice, you'd want more sophisticated XML parsing
+            try:
+                import xml.etree.ElementTree as ET
+                tree = ET.parse(file_path)
+                root = tree.getroot()
+                
+                # Extract all unique tag names as columns
+                columns = set()
+                for elem in root.iter():
+                    if elem.text and elem.text.strip():
+                        columns.add(elem.tag)
+                
+                # Create a simple DataFrame
+                data = []
+                for elem in root.iter():
+                    if elem.tag in columns and elem.text and elem.text.strip():
+                        row = {col: "" for col in columns}
+                        row[elem.tag] = elem.text.strip()
+                        data.append(row)
+                
+                if data:
+                    df = pl.DataFrame(data)
+                else:
+                    # Create empty DataFrame with found columns
+                    empty_data = {col: [] for col in columns}
+                    df = pl.DataFrame(empty_data)
+            except Exception as e:
+                raise ETLError(f"Failed to parse XML file: {e}")
         else:
             # Try to auto-detect format
             try:
@@ -173,7 +315,10 @@ def read_data_file(file_path: str) -> pl.DataFrame:
                     try:
                         df = pl.read_ndjson(file_path)
                     except:
-                        raise ETLError(f"Unsupported file format: {file_ext}")
+                        try:
+                            df = pl.read_json(file_path)
+                        except:
+                            raise ETLError(f"Unsupported file format: {file_ext}")
         
         # Auto-flatten struct columns if they exist
         df = auto_flatten_structs(df)
@@ -185,6 +330,17 @@ def read_data_file(file_path: str) -> pl.DataFrame:
 
 def auto_flatten_structs(df: pl.DataFrame) -> pl.DataFrame:
     """Automatically flatten struct columns to make them accessible"""
+    # Auto-flattening struct columns
+    
+    # Check if df is None or has no schema
+    if df is None:
+        print("ERROR: DataFrame is None in auto_flatten_structs")
+        return df
+    
+    if not hasattr(df, 'schema') or df.schema is None:
+        print("ERROR: DataFrame schema is None in auto_flatten_structs")
+        return df
+    
     flattened_columns = []
     
     for col_name, dtype in df.schema.items():
