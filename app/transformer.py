@@ -5,20 +5,14 @@ from .utils import parse_transform_expression, coerce_simple_transform, parse_bo
 
 def _build_expr_for_mapping(df: pl.DataFrame, mapping: Dict[str, Any]) -> Optional[pl.Expr]:
     """Build a Polars expression for a single mapping rule."""
-    target = mapping.get("target") or mapping.get("affected_target")
-    source = mapping.get("source") or mapping.get("affected_source")
-    transform = mapping.get("transform") or mapping.get("trns")
+    target = mapping.get("target")
+    source = mapping.get("source")
+    transform = mapping.get("transform")
     default = mapping.get("default")
 
     if source is not None:
-        # Handle both string (comma-separated) and list formats for source fields
-        if isinstance(source, str):
-            source_columns = [col.strip() for col in source.split(',')]
-        elif isinstance(source, list):
-            source_columns = source
-        else:
-            source_columns = [str(source)]
-            
+        # Handle comma-separated source fields
+        source_columns = [col.strip() for col in source.split(',')]
         missing_columns = [col for col in source_columns if col not in df.columns]
 
         if missing_columns:
@@ -58,7 +52,7 @@ def _build_expr_for_mapping(df: pl.DataFrame, mapping: Dict[str, Any]) -> Option
 
 def _apply_filter(df: pl.DataFrame, mapping: Dict[str, Any]) -> pl.DataFrame:
     """Apply a single filter mapping to the DataFrame."""
-    transform = str(mapping.get("trns", mapping.get("transform", ""))).strip()
+    transform = str(mapping.get("transform", "")).strip()
     
     try:
         expr = parse_transform_expression(transform)
@@ -87,14 +81,13 @@ def _apply_filter(df: pl.DataFrame, mapping: Dict[str, Any]) -> pl.DataFrame:
     except Exception as e:
         raise TransformError(f"Failed to apply FILTER transform: {e}") from e
 
-def apply_transformations(df: pl.DataFrame, mappings: List[Dict], mapping_config: Optional[Dict] = None) -> pl.DataFrame:
+def apply_transformations(df: pl.DataFrame, mappings: List[Dict]) -> pl.DataFrame:
     """
     Apply transformations to a DataFrame based on mapping configuration.
     
     Args:
         df: Input Polars DataFrame
         mappings: List of mapping dictionaries
-        mapping_config: Optional mapping configuration for new format
         
     Returns:
         Transformed Polars DataFrame
@@ -112,14 +105,14 @@ def apply_transformations(df: pl.DataFrame, mappings: List[Dict], mapping_config
         if expr is None:
             continue
             
-        select_exprs.append(expr.alias(mp.get('affected_target', mp.get('target', 'no_target'))))
+        select_exprs.append(expr.alias(mp.get('target', 'unknown')))
     
     # Apply transformations
     try:
         # Apply any filters first
         df2 = df
         for mp in mappings:
-            if mp.get('trns', '').startswith('FILTER[') or mp.get('trns', '').startswith('FILTERS['):
+            if mp.get('transform', '').startswith('FILTER[') or mp.get('transform', '').startswith('FILTERS['):
                 df2 = _apply_filter(df2, mp)
         
         # Apply all transformations

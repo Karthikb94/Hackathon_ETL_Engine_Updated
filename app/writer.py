@@ -4,7 +4,6 @@ import polars as pl
 from openpyxl import Workbook
 from xml.sax.saxutils import escape
 from .exceptions import WriterError
-from .models import SchemaDefinition
 from typing import List, Dict, Any, Optional
 
 EXCEL_MAX_ROWS = 1_048_000  # safe threshold
@@ -101,34 +100,31 @@ def write_xml(df: pl.DataFrame, path: str, root_tag: str = "records", row_tag: s
     except Exception as e:
         raise WriterError(f"Failed to write XML: {e}") from e
 
-def write_fixed_width(df: pl.DataFrame, path: str, target_schema: SchemaDefinition, logger: Optional[Any] = None):
+def write_fixed_width(df: pl.DataFrame, path: str, mappings: List[Dict[str, Any]], logger: Optional[Any] = None):
     """
-    Write DataFrame as fixed-width file using target schema definition.
+    Write DataFrame as fixed-width file using mapping definitions.
     
     Args:
         df: Input DataFrame
         path: Output file path
-        target_schema: Target schema with fixed-width definitions
+        mappings: List of mapping dictionaries with width information
         logger: Optional logger instance
     """
     ensure_parent(path)
     
-    # Get field definitions sorted by start position
+    # Extract field definitions from mappings
     field_defs = []
-    for attr_name, attr_def in target_schema.attributes.items():
-        if attr_def.start_pos is not None and attr_def.width is not None:
-            field_defs.append((attr_def.start_pos, attr_name, attr_def.width))
-    
-    # Sort by start position
-    field_defs.sort(key=lambda x: x[0])
+    for mapping in mappings:
+        target = mapping.get("target")
+        width = mapping.get("width", 20)  # Default width
+        if target:
+            field_defs.append((target, width))
     
     try:
         with open(path, "w", encoding="utf-8") as f:
             for ridx, row in enumerate(df.iter_rows(named=True)):
-                # Create a list to hold the fixed-width line
-                line = [' '] * max([start_pos + width for start_pos, _, width in field_defs]) if field_defs else 0
-                
-                for start_pos, field_name, width in field_defs:
+                line_parts = []
+                for field_name, width in field_defs:
                     val = row.get(field_name, "")
                     s = "" if val is None else str(val)
                     
@@ -138,17 +134,21 @@ def write_fixed_width(df: pl.DataFrame, path: str, target_schema: SchemaDefiniti
                             logger.warning(f"Truncating column '{field_name}' at row {ridx}: '{s}' -> width {width}")
                         s = s[:width]
                     
-                    # Place the value in the correct position
-                    end_pos = start_pos + width
-                    line[start_pos-1:end_pos-1] = s.ljust(width)
+                    # Right-align numeric, left-align text
+                    try:
+                        float(s)
+                        aligned = s.rjust(width)
+                    except:
+                        aligned = s.ljust(width)
+                    
+                    line_parts.append(aligned)
                 
-                f.write("".join(line) + "\n")
+                f.write("".join(line_parts) + "\n")
     except Exception as e:
         raise WriterError(f"Failed to write fixed-width file: {e}") from e
 
 def write_output(df: pl.DataFrame, base_path: str, fmt: str, mappings: List[Dict[str, Any]], 
-                xml_cfg: Optional[Dict[str, Any]] = None, logger: Optional[Any] = None, 
-                target_schema: Optional[SchemaDefinition] = None) -> str:
+                xml_cfg: Optional[Dict[str, Any]] = None, logger: Optional[Any] = None) -> str:
     """Write DataFrame to file in the specified format."""
     fmt = fmt.lower()
     
@@ -174,12 +174,9 @@ def write_output(df: pl.DataFrame, base_path: str, fmt: str, mappings: List[Dict
         row_tag = (xml_cfg or {}).get("row_tag", "record")
         write_xml(df, out_path, root_tag, row_tag)
         return out_path
-    elif fmt == "fixedwidth":
+    elif fmt == "fixed_width":
         out_path = f"{base_path}.txt"
-        if target_schema:
-            write_fixed_width(df, out_path, target_schema, logger=logger)
-        else:
-            raise WriterError("Fixed-width output requires target_schema")
+        write_fixed_width(df, out_path, mappings, logger=logger)
         return out_path
     else:
         raise WriterError(f"Unsupported output format: {fmt}")

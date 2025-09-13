@@ -1,0 +1,24 @@
+{
+  "mappings": [
+    {
+      "target": "full_name",
+      "source": "first_name,last_name",
+      "transform": "trns: STRING[CONCAT(attr('first_name'), ' ', attr('last_name'))]"
+    },
+    {
+      "target": "email_clean",
+      "source": "email",
+      "transform": "trns: STRING[TRIM(ATTR(email))]"
+    },
+    {
+      "target": "age_group",
+      "source": "age",
+      "transform": "trns: LOGICAL[IF(attr('age') >= 18, 'Adult', 'Minor')]"
+    },
+    {
+      "target": "dob_formatted",
+      "source": "dob",
+      "transform": "trns: DATE[FORMAT(attr('dob'), 'YYYY-MM-DD')]"
+    }
+  ]
+}
