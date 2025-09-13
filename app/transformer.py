@@ -24,8 +24,14 @@ def _build_expr_for_mapping(df: pl.DataFrame, mapping: Dict[str, Any]) -> Option
     logger.info(f"  Default: {default}")
 
     if source is not None:
-        # Handle comma-separated source fields
-        source_columns = [col.strip() for col in source.split(',')]
+        # Handle both string (comma-separated) and list formats for source fields
+        if isinstance(source, str):
+            source_columns = [col.strip() for col in source.split(',')]
+        elif isinstance(source, list):
+            source_columns = source
+        else:
+            source_columns = [str(source)]
+            
         missing_columns = [col for col in source_columns if col not in df.columns]
 
         if missing_columns:
@@ -142,13 +148,14 @@ def _apply_filters(df: pl.DataFrame, mappings: List[Dict[str, Any]]) -> pl.DataF
                 raise TransformError(f"Failed to apply FILTER/FILTERS transform: {e}") from e
     return out
 
-def apply_transformations(df: pl.DataFrame, mappings: List[Dict]) -> pl.DataFrame:
+def apply_transformations(df: pl.DataFrame, mappings: List[Dict], mapping_config: Optional[Dict] = None) -> pl.DataFrame:
     """
     Apply transformations to a DataFrame based on mapping configuration.
     
     Args:
         df: Input Polars DataFrame
         mappings: List of mapping dictionaries
+        mapping_config: Optional mapping configuration for new format
         
     Returns:
         Transformed Polars DataFrame

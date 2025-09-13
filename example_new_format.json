@@ -1,0 +1,81 @@
+{
+  "source_file_path": "sample_data.parquet",
+  "source_schema": {
+    "role": "source",
+    "fileType": "parquet",
+    "schemaId": "schm-parquet-1001",
+    "schemaName": "customer_parquet_v1",
+    "attributes": {
+      "first_name": {
+        "name": "first_name",
+        "dataType": "string",
+        "column_no": 1
+      },
+      "dob": {
+        "name": "dob",
+        "dataType": "date",
+        "column_no": 2
+      },
+      "email": {
+        "name": "email",
+        "dataType": "string",
+        "column_no": 3
+      }
+    }
+  },
+  "target_schema": {
+    "role": "target",
+    "fileType": "fixedWidth",
+    "schemaId": "schm-fix-2001",
+    "schemaName": "customer_fixedwidth_v1",
+    "attributes": {
+      "first_name": {
+        "name": "first_name",
+        "dataType": "string",
+        "start_pos": 1,
+        "width": 20
+      },
+      "dob": {
+        "name": "dob",
+        "dataType": "date",
+        "start_pos": 21,
+        "width": 10
+      },
+      "email": {
+        "name": "email",
+        "dataType": "string",
+        "start_pos": 31,
+        "width": 30
+      }
+    }
+  },
+  "mapping_config": {
+    "mappingId": "d98f31c3-7973-4049-a719-a9359bdbfdef",
+    "mappingName": "customer_parquet_to_fixedwidth",
+    "createdAt": "2025-09-11T07:32:22.113Z",
+    "sourceSchemaId": "schm-parquet-1001",
+    "targetSchemaId": "schm-fix-2001",
+    "rules": [
+      {
+        "id": "m1",
+        "trns": "DIRECT[ATTR(first_name)]",
+        "affected_source": ["first_name"],
+        "affected_target": "first_name"
+      },
+      {
+        "id": "m2",
+        "trns": "DATE[FORMAT(attr('dob'), 'YYYY-MM-DD')]",
+        "affected_source": ["dob"],
+        "affected_target": "dob"
+      },
+      {
+        "id": "m3",
+        "trns": "STRING[TRIM(ATTR(email))]",
+        "affected_source": ["email"],
+        "affected_target": "email"
+      }
+    ]
+  },
+  "output_path": "output/customer_fixed_width",
+  "output_format": "fixedwidth"
+}
