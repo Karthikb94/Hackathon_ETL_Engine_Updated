@@ -88,6 +88,13 @@ def parse_attr(token: str):
 
 def parse_boolean_expr(expr: str):
     expr = expr.strip()
+    
+    # Handle bare boolean expressions like GREATER_THAN(...), EQUALS(...), etc.
+    if expr.startswith(("GREATER_THAN(", "GT(", "LESS_THAN(", "LT(", "EQUALS(", "EQ(", "NOT_EQUALS(", "NE(", 
+                        "GREATER_OR_EQUAL(", "GTE(", "LESS_OR_EQUAL(", "LTE(", "ENDSWITH(", "STARTSWITH(", 
+                        "CONTAINS(", "AND(", "OR(", "NOT(", "IF(")):
+        return parse_value(expr)
+    
     # BOOLEAN[...] form
     if expr.startswith("BOOLEAN[") and expr.endswith("]"):
         inner = expr[len("BOOLEAN["):-1].strip()
@@ -278,6 +285,9 @@ def parse_value(token: str):
     # Handle transform expressions without trns: prefix
     if token.startswith(("MATH[", "STRING[", "LOGICAL[", "BOOLEAN[", "FILTER[", "DATE[", "ARRAY[", "DIRECT[")):
         return parse_transform_expression(token)
+    # Handle bare IF calls by wrapping them in LOGICAL[...]
+    if token.startswith("IF("):
+        return parse_transform_expression(f"LOGICAL[{token}]")
     # Handle bare method calls like CONCAT(...) by wrapping them in STRING[...]
     if token.startswith(("CONCAT(", "UPPER(", "LOWER(", "TRIM(", "LENGTH(", "REPLACE(", "SUBSTR(")):
         return parse_transform_expression(f"STRING[{token}]")
