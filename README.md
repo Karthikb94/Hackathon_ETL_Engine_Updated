@@ -120,7 +120,7 @@ The ETL Engine v1 features an advanced parsing tree system that handles complex 
 
 ### Advanced Operations
 
-- **STRING**: `CONCAT`, `SUBSTR`, `REPLACE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`
+- **STRING**: `CONCAT`, `SUBSTR`, `REPLACE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`, `ENDSWITH`, `STARTSWITH`, `CONTAINS`
 - **MATH**: `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `ROUND`, `ABS`
 - **LOGICAL**: `IF`, `AND`, `OR`, `NOT`
 - **DATE**: `FORMAT`, `PARSE`, `ADD_DAYS`, `SUB_DAYS`, `DIFF_DAYS`, `CURRENT_DATE`, `EXTRACT`
@@ -162,6 +162,15 @@ The ETL Engine v1 features an advanced parsing tree system that handles complex 
   "target": "employee_status",
   "source": "is_active,department,age",
   "transform": "trns: LOGICAL[IF(AND(attr('is_active'), EQ(attr('department'), 'IT')), 'Active IT', IF(attr('is_active'), 'Active Other', 'Inactive'))]"
+}
+```
+
+#### String Pattern Matching
+```json
+{
+  "target": "email_status",
+  "source": "email",
+  "transform": "trns: LOGICAL[IF(ENDSWITH(TRIM(ATTR(email)), '@mail.com'), 'TO BE', 'DLA;KJD')]"
 }
 ```
 

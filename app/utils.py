@@ -136,7 +136,9 @@ def parse_boolean_expr(expr: str):
             raise ValueError(f"IF statement requires 3 arguments: {expr}")
     
     # Handle BOOLEAN method calls for FILTER operations
-    if expr.startswith("EQ(") or expr.startswith("GT(") or expr.startswith("LT(") or expr.startswith("GTE(") or expr.startswith("LTE(") or expr.startswith("NE("):
+    if (expr.startswith("EQ(") or expr.startswith("GT(") or expr.startswith("LT(") or 
+        expr.startswith("GTE(") or expr.startswith("LTE(") or expr.startswith("NE(") or
+        expr.startswith("ENDSWITH(") or expr.startswith("STARTSWITH(") or expr.startswith("CONTAINS(")):
         # Extract method name and arguments
         m = re.match(r"(\w+)\s*\((.*)\)$", expr.strip(), re.DOTALL)
         if m:
@@ -161,6 +163,15 @@ def parse_boolean_expr(expr: str):
             elif method == "NE":
                 a, b = args
                 return parse_value(a).ne(parse_value(b))
+            elif method == "ENDSWITH":
+                a, b = args
+                return parse_value(a).str.ends_with(parse_value(b))
+            elif method == "STARTSWITH":
+                a, b = args
+                return parse_value(a).str.starts_with(parse_value(b))
+            elif method == "CONTAINS":
+                a, b = args
+                return parse_value(a).str.contains(parse_value(b))
             else:
                 raise ValueError(f"Unsupported BOOLEAN method: {method}")
         else:
@@ -304,6 +315,18 @@ def parse_transform_expression(expr: str):
         if method == "LENGTH":
             base = parse_value(args[0]).cast(pl.Utf8)
             return base.str.len_chars()
+        if method == "ENDSWITH":
+            base = parse_value(args[0]).cast(pl.Utf8)
+            suffix = parse_value(args[1])
+            return base.str.ends_with(suffix)
+        if method == "STARTSWITH":
+            base = parse_value(args[0]).cast(pl.Utf8)
+            prefix = parse_value(args[1])
+            return base.str.starts_with(prefix)
+        if method == "CONTAINS":
+            base = parse_value(args[0]).cast(pl.Utf8)
+            substring = parse_value(args[1])
+            return base.str.contains(substring)
         raise ValueError(f"Unsupported STRING method: {method}")
 
     if op == "LOGICAL":

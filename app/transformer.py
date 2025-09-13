@@ -387,6 +387,22 @@ class AdvancedTransformer:
             if length is None:
                 return args[0].str.slice(start)
             return args[0].str.slice(start, length)
+        elif function == 'ENDSWITH':
+            if len(args) < 2:
+                raise TransformError("ENDSWITH requires 2 arguments: string, suffix")
+            return args[0].str.ends_with(args[1])
+        elif function == 'STARTSWITH':
+            if len(args) < 2:
+                raise TransformError("STARTSWITH requires 2 arguments: string, prefix")
+            return args[0].str.starts_with(args[1])
+        elif function == 'CONTAINS':
+            if len(args) < 2:
+                raise TransformError("CONTAINS requires 2 arguments: string, substring")
+            return args[0].str.contains(args[1])
+        elif function == 'REGEX_MATCH':
+            if len(args) < 2:
+                raise TransformError("REGEX_MATCH requires 2 arguments: string, pattern")
+            return args[0].str.contains(args[1], literal=False)
         else:
             raise TransformError(f"Unknown string function: {function}")
     
@@ -604,6 +620,18 @@ class AdvancedTransformer:
             if not operands:
                 raise TransformError("TRIM requires 1 argument")
             return operands[0].str.strip_chars()
+        elif function == 'ENDSWITH':
+            if len(operands) < 2:
+                raise TransformError("ENDSWITH requires 2 arguments: string, suffix")
+            return operands[0].str.ends_with(operands[1])
+        elif function == 'STARTSWITH':
+            if len(operands) < 2:
+                raise TransformError("STARTSWITH requires 2 arguments: string, prefix")
+            return operands[0].str.starts_with(operands[1])
+        elif function == 'CONTAINS':
+            if len(operands) < 2:
+                raise TransformError("CONTAINS requires 2 arguments: string, substring")
+            return operands[0].str.contains(operands[1])
         else:
             raise TransformError(f"Unknown function: {function}")
 
