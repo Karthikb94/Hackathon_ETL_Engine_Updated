@@ -1,0 +1,4 @@
+{"full_name":"John Doe","email_clean":"john@example.com","age_group":"Adult","is_valid_email":true}
+{"full_name":"Jane Smith","email_clean":"jane@example.com","age_group":"Young","is_valid_email":true}
+{"full_name":"Bob Johnson","email_clean":"bob@example.com","age_group":"Young","is_valid_email":true}
+{"full_name":"Alice Brown","email_clean":"alice@example.com","age_group":"Young","is_valid_email":true}

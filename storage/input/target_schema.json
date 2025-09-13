@@ -1,0 +1,28 @@
+{
+  "role": "target",
+  "fileType": "json",
+  "schemaId": "schm-json-2001",
+  "schemaName": "customer_json_v1",
+  "attributes": {
+    "full_name": {
+      "name": "full_name",
+      "dataType": "string",
+      "column_no": 1
+    },
+    "email_clean": {
+      "name": "email_clean",
+      "dataType": "string", 
+      "column_no": 2
+    },
+    "age_group": {
+      "name": "age_group",
+      "dataType": "string",
+      "column_no": 3
+    },
+    "is_valid_email": {
+      "name": "is_valid_email",
+      "dataType": "boolean",
+      "column_no": 4
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import polars as pl
 import re
+import traceback
 from typing import Any, Dict, List, Optional, Union, Tuple
 from .exceptions import MappingError, TransformError
 from .utils import parse_transform_expression, coerce_simple_transform, parse_boolean_expr
@@ -635,31 +636,97 @@ class AdvancedTransformer:
         else:
             raise TransformError(f"Unknown function: {function}")
 
-def _build_expr_for_mapping(df: pl.DataFrame, mapping: Dict[str, Any]) -> Optional[pl.Expr]:
-    """Build a Polars expression for a single mapping rule using advanced parser"""
-    target = mapping.get("target")
-    source = mapping.get("source")
-    transform = mapping.get("transform")
-    default = mapping.get("default")
+# Removed old mapping functions - only using rules format now
 
-    if source is not None:
-        # Handle comma-separated source fields
-        source_columns = [col.strip() for col in source.split(',')]
-        missing_columns = [col for col in source_columns if col not in df.columns]
+def apply_transformations_from_rules(df: pl.DataFrame, rules: List[Dict], error_handler=None) -> pl.DataFrame:
+    """
+    Apply transformations to a DataFrame using rules format directly.
+    
+    Args:
+        df: Input Polars DataFrame
+        rules: List of rule dictionaries with id, trns, affected_source, affected_target
+        error_handler: Optional error handler for detailed error tracking
+        
+    Returns:
+        Transformed Polars DataFrame
+    """
+    if not rules:
+        raise TransformError("Rules list cannot be empty")
+    
+    # Build expressions for each rule using advanced parser
+    select_exprs = []
+    
+    for rule_index, rule in enumerate(rules):
+        try:
+            expr = _build_expr_for_rule(df, rule)
+            
+            # Skip None expressions (filter operations)
+            if expr is None:
+                continue
+                
+            target = rule.get('affected_target', f"field_{rule.get('id', 'unknown')}")
+            select_exprs.append(expr.alias(target))
+            
+        except Exception as e:
+            if error_handler:
+                error_handler.add_error(
+                    error_type="TRANSFORMATION_RULE_ERROR",
+                    error_message=str(e),
+                    line_number=rule_index + 1,
+                    column_name=rule.get('affected_target'),
+                    transformation_rule=rule,
+                    stack_trace=traceback.format_exc()
+                )
+            raise TransformError(f"Failed to build expression for rule {rule.get('id', rule_index + 1)}: {e}") from e
+    
+    # Apply transformations
+    try:
+        # Apply any filters first
+        df2 = df
+        for rule_index, rule in enumerate(rules):
+            if rule.get('trns', '').startswith(('FILTER[', 'FILTERS[')):
+                try:
+                    df2 = _apply_filter_from_rule(df2, rule)
+                except Exception as e:
+                    if error_handler:
+                        error_handler.add_error(
+                            error_type="FILTER_RULE_ERROR",
+                            error_message=str(e),
+                            line_number=rule_index + 1,
+                            column_name=rule.get('affected_target'),
+                            transformation_rule=rule,
+                            stack_trace=traceback.format_exc()
+                        )
+                    raise TransformError(f"Failed to apply filter rule {rule.get('id', rule_index + 1)}: {e}") from e
+        
+        # Apply all transformations
+        out = df2.select(select_exprs)
+        return out
+        
+    except Exception as e:
+        if error_handler:
+            error_handler.add_error(
+                error_type="TRANSFORMATION_EXECUTION_ERROR",
+                error_message=str(e),
+                line_number=None,
+                column_name=None,
+                transformation_rule=None,
+                stack_trace=traceback.format_exc()
+            )
+        raise TransformError(f"Failed to apply transformations: {e}") from e
 
-        if missing_columns:
-            if default is not None:
-                src_expr = pl.lit(default)
-            else:
-                raise MappingError(f"Source column(s) {missing_columns} not found and no default provided.")
-        else:
-            # Use the first source column for the source expression
-            src_expr = pl.col(source_columns[0])
-    else:
-        if default is not None and transform is None:
-            return pl.lit(default)
-        src_expr = pl.lit(None)
-
+def _build_expr_for_rule(df: pl.DataFrame, rule: Dict[str, Any]) -> Optional[pl.Expr]:
+    """Build a Polars expression for a single rule using advanced parser"""
+    target = rule.get("affected_target")
+    source_columns = rule.get("affected_source", [])
+    transform = rule.get("trns", "")
+    
+    # Check if source columns exist
+    missing_columns = [col for col in source_columns if col not in df.columns]
+    
+    if missing_columns:
+        raise MappingError(f"Source column(s) {missing_columns} not found for rule {rule.get('id', 'unknown')}.")
+    
     if transform:
         try:
             # Use advanced transformer for complex expressions
@@ -670,66 +737,29 @@ def _build_expr_for_mapping(df: pl.DataFrame, mapping: Dict[str, Any]) -> Option
             try:
                 return parse_transform_expression(transform)
             except Exception as e2:
-                raise TransformError(f"Failed to apply transform for target '{target}': {e2}") from e2
+                raise TransformError(f"Failed to apply transform for rule '{rule.get('id', 'unknown')}': {e2}") from e2
     else:
-        if source is None and default is None:
-            raise MappingError(f"Mapping for target '{target}' requires at least one of source/transform/default.")
-        return src_expr
+        # If no transform, use the first source column
+        if source_columns:
+            return pl.col(source_columns[0])
+        else:
+            raise MappingError(f"Rule {rule.get('id', 'unknown')} requires either trns or affected_source.")
 
-def _apply_filter(df: pl.DataFrame, mapping: Dict[str, Any]) -> pl.DataFrame:
-    """Apply a single filter mapping to the DataFrame"""
-    transform = str(mapping.get("transform", "")).strip()
+def _apply_filter_from_rule(df: pl.DataFrame, rule: Dict[str, Any]) -> pl.DataFrame:
+    """Apply a single filter rule to the DataFrame"""
+    transform = str(rule.get("trns", "")).strip()
     
     try:
         transformer = AdvancedTransformer()
         expr = transformer.parse_expression(transform, df)
         
         # Check if it's a filter operation
-        if mapping.get("transform", "").upper().startswith(("FILTER[", "FILTERS[")):
+        if rule.get("trns", "").upper().startswith(("FILTER[", "FILTERS[")):
             # Apply the filter
             return df.filter(expr)
         else:
             return df
     except Exception as e:
-        raise TransformError(f"Failed to apply FILTER transform: {e}") from e
+        raise TransformError(f"Failed to apply FILTER transform for rule {rule.get('id', 'unknown')}: {e}") from e
 
-def apply_transformations(df: pl.DataFrame, mappings: List[Dict]) -> pl.DataFrame:
-    """
-    Apply transformations to a DataFrame using advanced parsing tree execution.
-    
-    Args:
-        df: Input Polars DataFrame
-        mappings: List of mapping dictionaries
-        
-    Returns:
-        Transformed Polars DataFrame
-    """
-    if not mappings:
-        raise TransformError("Mappings list cannot be empty")
-    
-    # Build expressions for each mapping using advanced parser
-    select_exprs = []
-    
-    for mp in mappings:
-        expr = _build_expr_for_mapping(df, mp)
-        
-        # Skip None expressions (filter operations)
-        if expr is None:
-            continue
-            
-        select_exprs.append(expr.alias(mp.get('target', 'unknown')))
-    
-    # Apply transformations
-    try:
-        # Apply any filters first
-        df2 = df
-        for mp in mappings:
-            if mp.get('transform', '').startswith(('FILTER[', 'FILTERS[')):
-                df2 = _apply_filter(df2, mp)
-        
-        # Apply all transformations
-        out = df2.select(select_exprs)
-        return out
-        
-    except Exception as e:
-        raise TransformError(f"Transformation failed: {e}")
+# Removed old apply_transformations function - only using rules format now

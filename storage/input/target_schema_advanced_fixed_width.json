@@ -1,0 +1,43 @@
+{
+  "role": "target",
+  "fileType": "fixed_width",
+  "schemaId": "schm-fixed-advanced-2001",
+  "schemaName": "advanced_fixed_width_v1",
+  "attributes": {
+    "id": {
+      "name": "id",
+      "dataType": "number",
+      "column_no": 1,
+      "width": 5,
+      "start_position": 0
+    },
+    "name": {
+      "name": "name",
+      "dataType": "string",
+      "column_no": 2,
+      "width": 20,
+      "start_position": 10
+    },
+    "email": {
+      "name": "email",
+      "dataType": "string",
+      "column_no": 3,
+      "width": 30,
+      "start_position": 35
+    },
+    "status": {
+      "name": "status",
+      "dataType": "string",
+      "column_no": 4,
+      "width": 8,
+      "start_position": 70
+    },
+    "score": {
+      "name": "score",
+      "dataType": "number",
+      "column_no": 5,
+      "width": 6,
+      "start_position": 85
+    }
+  }
+}

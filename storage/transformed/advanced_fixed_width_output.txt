@@ -1,0 +1,4 @@
+    2     John Doe                 john@example.com                   ADULT              50
+    2     Jane Smith               jane@example.com                   YOUNG              50
+    2     Bob Johnson              bob@example.com                    YOUNG              50
+    2     Alice Brown              alice@example.com                  YOUNG              50

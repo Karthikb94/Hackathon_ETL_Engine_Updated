@@ -145,7 +145,69 @@ def write_fixed_width(df: pl.DataFrame, path: str, mappings: List[Dict[str, Any]
                 
                 f.write("".join(line_parts) + "\n")
     except Exception as e:
-        raise WriterError(f"Failed to write fixed-width file: {e}") from e
+        raise WriterError(f"Failed to write fixed-width file: {e}")
+
+def write_fixed_width_with_schema(df: pl.DataFrame, path: str, target_schema: Dict[str, Any], logger: Optional[Any] = None):
+    """
+    Write DataFrame as fixed-width file using target schema definitions.
+    
+    Args:
+        df: Input DataFrame
+        path: Output file path
+        target_schema: Target schema containing field definitions with positions and widths
+        logger: Optional logger instance
+    """
+    ensure_parent(path)
+    
+    # Extract field definitions from target schema
+    field_defs = []
+    attributes = target_schema.get("attributes", {})
+    
+    # Sort fields by column_no to maintain order
+    sorted_fields = sorted(attributes.items(), key=lambda x: x[1].get("column_no", 0))
+    
+    for field_name, field_config in sorted_fields:
+        # Get width from field config, default to 20
+        width = field_config.get("width", 20)
+        # Get start position for padding (optional)
+        start_pos = field_config.get("start_position", 0)
+        field_defs.append((field_name, width, start_pos))
+    
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            for ridx, row in enumerate(df.iter_rows(named=True)):
+                line_parts = []
+                current_pos = 0
+                
+                for field_name, width, start_pos in field_defs:
+                    val = row.get(field_name, "")
+                    s = "" if val is None else str(val)
+                    
+                    # Truncate if too long
+                    if len(s) > width:
+                        if logger:
+                            logger.warning(f"Truncating column '{field_name}' at row {ridx}: '{s}' -> width {width}")
+                        s = s[:width]
+                    
+                    # Add padding to reach start position if specified
+                    if start_pos > current_pos:
+                        padding = " " * (start_pos - current_pos)
+                        line_parts.append(padding)
+                        current_pos = start_pos
+                    
+                    # Right-align numeric, left-align text
+                    try:
+                        float(s)
+                        aligned = s.rjust(width)
+                    except:
+                        aligned = s.ljust(width)
+                    
+                    line_parts.append(aligned)
+                    current_pos += width
+                
+                f.write("".join(line_parts) + "\n")
+    except Exception as e:
+        raise WriterError(f"Failed to write fixed-width file with schema: {e}") from e
 
 def write_output(df: pl.DataFrame, base_path: str, fmt: str, mappings: List[Dict[str, Any]], 
                 xml_cfg: Optional[Dict[str, Any]] = None, logger: Optional[Any] = None) -> str:
@@ -177,6 +239,48 @@ def write_output(df: pl.DataFrame, base_path: str, fmt: str, mappings: List[Dict
     elif fmt == "fixed_width":
         out_path = f"{base_path}.txt"
         write_fixed_width(df, out_path, mappings, logger=logger)
+        return out_path
+    elif fmt == "txt":
+        out_path = f"{base_path}.txt"
+        write_fixed_width(df, out_path, mappings, logger=logger)
+        return out_path
+    else:
+        raise WriterError(f"Unsupported output format: {fmt}")
+
+def write_output_with_schema(df: pl.DataFrame, base_path: str, fmt: str, mapping_config: Dict[str, Any], 
+                           logger: Optional[Any] = None) -> str:
+    """Write DataFrame to file in the specified format using target schema."""
+    fmt = fmt.lower()
+    
+    if fmt == "csv":
+        out_path = f"{base_path}.csv"
+        write_csv(df, out_path)
+        return out_path
+    elif fmt == "json":
+        out_path = f"{base_path}.jsonl"
+        write_ndjson(df, out_path)
+        return out_path
+    elif fmt == "json_array":
+        out_path = f"{base_path}.json"
+        write_json(df, out_path)
+        return out_path
+    elif fmt == "xlsx":
+        out_path = f"{base_path}.xlsx"
+        write_xlsx(df, out_path)
+        return out_path
+    elif fmt == "xml":
+        out_path = f"{base_path}.xml"
+        write_xml(df, out_path)
+        return out_path
+    elif fmt == "fixed_width":
+        out_path = f"{base_path}.txt"
+        target_schema = mapping_config.get("targetSchema", {})
+        write_fixed_width_with_schema(df, out_path, target_schema, logger=logger)
+        return out_path
+    elif fmt == "txt":
+        out_path = f"{base_path}.txt"
+        target_schema = mapping_config.get("targetSchema", {})
+        write_fixed_width_with_schema(df, out_path, target_schema, logger=logger)
         return out_path
     else:
         raise WriterError(f"Unsupported output format: {fmt}")

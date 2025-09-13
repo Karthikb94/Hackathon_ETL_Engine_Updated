@@ -1,0 +1,31 @@
+{
+  "error_summary": {
+    "run_id": "20250913_183259",
+    "timestamp": "2025-09-13T18:32:59.836838",
+    "total_errors": 1,
+    "source_file": "C:\\Users\\karth\\OneDrive\\Desktop\\course\\Hackathon_ETL_Engine_Updated\\storage\\input\\lsad.parquet",
+    "output_file": "direct_test_fixed_width",
+    "log_file": "../storage/logs\\etl_20250913_183259_20250913_183259.log",
+    "status": "FAILED"
+  },
+  "errors": [
+    {
+      "timestamp": "2025-09-13T18:32:59.836838",
+      "error_type": "SYSTEM_ERROR",
+      "error_message": "name 'BASE_LOG_DIR' is not defined",
+      "line_number": null,
+      "column_name": null,
+      "row_data": null,
+      "transformation_rule": null,
+      "stack_trace": "Traceback (most recent call last):\n  File \"C:\\Users\\karth\\OneDrive\\Desktop\\course\\Hackathon_ETL_Engine_Updated\\transformationEngine\\app\\main.py\", line 584, in transform_direct\n    log_path = os.path.join(BASE_LOG_DIR, log_filename)\n                            ^^^^^^^^^^^^\nNameError: name 'BASE_LOG_DIR' is not defined\n"
+    }
+  ],
+  "troubleshooting": {
+    "common_solutions": [
+      "Check if all required files exist in storage/input/",
+      "Verify file formats and permissions",
+      "Check API request format and parameters",
+      "Review server logs for additional details"
+    ]
+  }
+}

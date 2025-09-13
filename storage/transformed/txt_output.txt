@@ -1,0 +1,4 @@
+John Doe                      john@example.com                        Adult     True 
+Jane Smith                    jane@example.com                        Young     True 
+Bob Johnson                   bob@example.com                         Young     True 
+Alice Brown                   alice@example.com                       Young     True 
