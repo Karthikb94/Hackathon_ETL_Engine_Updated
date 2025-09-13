@@ -1,0 +1,89 @@
+{
+  "ETL Engine v1 Compliance Report": {
+    "timestamp": "2025-09-13T12:34:59.046926",
+    "specification_version": "1.0",
+    "supported_operations": {
+      "MATH": [
+        "ADD",
+        "SUB",
+        "MUL",
+        "DIV",
+        "MOD",
+        "ROUND",
+        "ABS"
+      ],
+      "STRING": [
+        "CONCAT",
+        "SUBSTR",
+        "REPLACE",
+        "UPPER",
+        "LOWER",
+        "TRIM",
+        "LENGTH",
+        "ENDSWITH",
+        "STARTSWITH",
+        "CONTAINS"
+      ],
+      "LOGICAL": [
+        "AND",
+        "OR",
+        "NOT",
+        "IF"
+      ],
+      "BOOLEAN": [
+        "EQUALS",
+        "NOT_EQUALS",
+        "GREATER_THAN",
+        "LESS_THAN",
+        "GREATER_OR_EQUAL",
+        "LESS_OR_EQUAL"
+      ],
+      "DATE": [
+        "FORMAT",
+        "PARSE",
+        "ADD_DAYS",
+        "SUB_DAYS",
+        "DIFF_DAYS",
+        "CURRENT_DATE",
+        "EXTRACT"
+      ],
+      "ARRAY": [
+        "JOIN",
+        "SPLIT",
+        "LENGTH",
+        "GET"
+      ],
+      "AGGREGATION": [
+        "SUM",
+        "AVG",
+        "MIN",
+        "MAX",
+        "COUNT"
+      ],
+      "FILTERS": [
+        "INCLUDE_IF",
+        "EXCLUDE_IF",
+        "LIMIT",
+        "OFFSET"
+      ]
+    },
+    "missing_operations": {
+      "ARRAY": [
+        "MAP",
+        "FILTER",
+        "REDUCE"
+      ],
+      "AGGREGATION": [
+        "GROUP_BY",
+        "DISTINCT"
+      ]
+    },
+    "additional_features": [
+      "Advanced parsing tree with dependency resolution",
+      "Precedence handling for complex expressions",
+      "Circular dependency detection",
+      "Fallback parser for maximum compatibility",
+      "Enhanced string pattern matching functions"
+    ]
+  }
+}
