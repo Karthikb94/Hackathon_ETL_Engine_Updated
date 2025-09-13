@@ -1,91 +1,168 @@
-# ETL Engine (FastAPI + Polars)
+# ETL Engine v2
 
-A high-performance ETL engine built with FastAPI and Polars, designed for processing large datasets efficiently.
+A high-performance ETL engine built with FastAPI and Polars, supporting schema-driven transformations with source and target schema definitions.
 
 ## Features
 
-- **Fast Data Processing**: Built on Polars for high-performance data manipulation
-- **Multiple Input/Output Formats**: Supports CSV, XLSX, JSON, XML, and positional formats
+- **Schema-Driven**: Define source and target schemas for data validation and transformation
+- **Multiple Formats**: Support for Parquet, CSV, JSON, XML, Excel, and Fixed-Width output
 - **Flexible Transformations**: Rich transformation language with support for complex operations
 - **RESTful API**: Clean FastAPI interface with automatic documentation
-- **Comprehensive Logging**: Detailed logging for debugging and monitoring
-- **Error Handling**: Robust error handling with cleanup on failures
+- **High Performance**: Built on Polars for fast, memory-efficient data processing
+- **Type Safety**: Full Pydantic model validation
 
-## Installation
+## Quick Start
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd etl_engine
-```
+### 1. Installation
 
-2. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-3. Run the server:
+### 2. Start the Server
+
 ```bash
 uvicorn app.main:app --reload
 ```
 
-## API Endpoints
+### 3. Test the API
 
-### Health Check
-- **GET** `/health` - Check if the service is running
+```bash
+curl -X POST 'http://localhost:8000/transform' \
+  -H 'Content-Type: application/json' \
+  -d @etl_request_example.json
+```
 
-### Transform Data
-- **POST** `/transform` - Transform data using uploaded files
+### 4. View Documentation
 
-## Usage
+Visit `http://localhost:8000/docs` for interactive API documentation.
 
-### 1. Prepare Your Data
-- **Input**: Parquet file containing your data
-- **Mapping**: JSON file defining transformations and output format
+## API Usage
 
-### 2. Create Mapping Configuration
-Example mapping file (`mapping.json`):
+### Endpoint
+
+**POST** `/transform` - Transform data using JSON configuration
+
+### Request Format
+
 ```json
 {
-  "output_path": "output/customers",
-  "output_format": "csv",
-  "xml_config": {
-    "root_tag": "customers",
-    "row_tag": "customer"
-  },
-  "mappings": [
-    {
-      "source": "firstName",
-      "target": "full_name",
-      "transform": "trns: STRING[CONCAT(attr('firstName'), ' ', attr('lastName'))]"
-    },
-    {
-      "source": "age",
-      "target": "age_validated",
-      "validate": ">=0 and <=120"
+  "source_file_path": "path/to/input.parquet",
+  "source_schema": {
+    "role": "source",
+    "fileType": "parquet",
+    "schemaId": "schm-parquet-1001",
+    "schemaName": "customer_parquet_v1",
+    "attributes": {
+      "first_name": {
+        "name": "first_name",
+        "dataType": "string",
+        "column_no": 1
+      }
     }
-  ]
+  },
+  "target_schema": {
+    "role": "target",
+    "fileType": "fixedWidth",
+    "schemaId": "schm-fix-2001",
+    "schemaName": "customer_fixedwidth_v1",
+    "attributes": {
+      "first_name": {
+        "name": "first_name",
+        "dataType": "string",
+        "start_pos": 1,
+        "width": 20
+      }
+    }
+  },
+  "mapping_config": {
+    "mappingId": "mapping-001",
+    "mappingName": "customer_parquet_to_fixedwidth",
+    "createdAt": "2025-09-11T07:32:22.113Z",
+    "sourceSchemaId": "schm-parquet-1001",
+    "targetSchemaId": "schm-fix-2001",
+    "rules": [
+      {
+        "id": "r1",
+        "trns": "DIRECT[ATTR(first_name)]",
+        "affected_source": ["first_name"],
+        "affected_target": "first_name"
+      }
+    ]
+  },
+  "output_path": "output/result",
+  "output_format": "fixedwidth"
 }
 ```
 
-### 3. Transform Data
-```bash
-curl -X POST "http://localhost:8000/transform" \
-  -H "accept: application/json" \
-  -H "Content-Type: multipart/form-data" \
-  -F "parquet_file=@data.parquet" \
-  -F "mapping_file=@mapping.json"
+### Response Format
+
+```json
+{
+  "status": "success",
+  "run_id": "20250911_143022",
+  "input_rows": 1000,
+  "output_rows": 1000,
+  "processing_time_ms": 1250.5,
+  "throughput_rows_per_sec": 800,
+  "output_path": "output/result_20250911_143022.txt"
+}
+```
+
+## Schema Definitions
+
+### Source Schema
+
+Defines the structure of your input data:
+
+```json
+{
+  "role": "source",
+  "fileType": "parquet",
+  "schemaId": "schm-parquet-1001",
+  "schemaName": "customer_parquet_v1",
+  "attributes": {
+    "field_name": {
+      "name": "field_name",
+      "dataType": "string",
+      "column_no": 1
+    }
+  }
+}
+```
+
+### Target Schema
+
+Defines the structure of your output data:
+
+```json
+{
+  "role": "target",
+  "fileType": "fixedWidth",
+  "schemaId": "schm-fix-2001",
+  "schemaName": "customer_fixedwidth_v1",
+  "attributes": {
+    "field_name": {
+      "name": "field_name",
+      "dataType": "string",
+      "start_pos": 1,
+      "width": 20
+    }
+  }
+}
 ```
 
 ## Transformation Language
 
-### Basic Transforms
-- `to_int`, `to_float`, `to_str`, `to_bool`
-- `trim`, `upper`, `lower`
-- `date_format('YYYY-MM-DD')`
-- `to_date('MMDDYYYY')`
+### Basic Operations
 
-### Advanced Transforms
+- `DIRECT[ATTR('column')]` - Direct field mapping
+- `STRING[CONCAT(attr('col1'), ' ', attr('col2'))]` - String concatenation
+- `DATE[FORMAT(attr('date_col'), 'YYYY-MM-DD')]` - Date formatting
+- `STRING[TRIM(ATTR('column'))]` - String trimming
+
+### Advanced Operations
+
 - **STRING**: `CONCAT`, `SUBSTR`, `REPLACE`, `UPPER`, `LOWER`, `TRIM`, `LENGTH`
 - **MATH**: `ADD`, `SUB`, `MUL`, `DIV`, `MOD`, `ROUND`, `ABS`
 - **LOGICAL**: `IF`, `AND`, `OR`, `NOT`
@@ -93,55 +170,42 @@ curl -X POST "http://localhost:8000/transform" \
 - **ARRAY**: `JOIN`, `SPLIT`, `LENGTH`, `GET`
 - **FILTERS**: `INCLUDE_IF`, `EXCLUDE_IF`, `LIMIT`, `OFFSET`
 
-### Examples
-```json
-{
-  "transform": "trns: STRING[CONCAT(attr('first'), ' ', attr('last'))]"
-}
-{
-  "transform": "trns: LOGICAL[IF(attr('age') > 18, 'Adult', 'Minor')]"
-}
-{
-  "transform": "trns: DATE[FORMAT(attr('dob'), 'YYYY-MM-DD')]"
-}
-```
+## Supported File Types
 
-## Output Formats
+### Input
+- **Parquet** - Primary format with automatic struct flattening
 
-- **CSV**: Standard comma-separated values
-- **XLSX**: Excel format with automatic chunking for large datasets
-- **JSON**: Newline-delimited JSON (JSONL)
-- **XML**: Customizable XML with configurable tags
-- **Positional**: Fixed-width text format
+### Output
+- **CSV** - Comma-separated values
+- **JSON** - Newline-delimited JSON (JSONL)
+- **JSON Array** - Traditional JSON array format
+- **Excel** - XLSX format with automatic chunking for large datasets
+- **XML** - Customizable XML with configurable tags
+- **Fixed-Width** - Fixed-width text format with precise positioning
 
-## Configuration
+## Project Structure
 
-### Environment Variables
-- `ETL_OUTPUT_DIR`: Output directory (default: "output")
-- `ETL_LOGS_DIR`: Logs directory (default: "logs")
-
-### File Structure
 ```
 etl_engine/
 ├── app/
-│   ├── main.py          # FastAPI application
-│   ├── reader.py        # Data reading logic
-│   ├── transformer.py   # Data transformation logic
-│   ├── writer.py        # Output writing logic
-│   ├── utils.py         # Utility functions
-│   ├── exceptions.py    # Custom exceptions
-│   └── logger.py        # Logging configuration
-├── config/
-│   └── sample_mapping.json
-├── requirements.txt
-└── README.md
+│   ├── main.py              # FastAPI application
+│   ├── models.py            # Pydantic data models
+│   ├── enhanced_reader.py   # Data reading logic
+│   ├── transformer.py       # Data transformation logic
+│   ├── writer.py            # Output writing logic
+│   ├── utils.py             # Utility functions
+│   ├── exceptions.py        # Custom exceptions
+│   └── logger.py            # Logging configuration
+├── etl_request_example.json # Example API request
+├── requirements.txt         # Python dependencies
+└── README.md               # This file
 ```
 
 ## Error Handling
 
 The API provides detailed error messages for:
-- Invalid file formats
-- Malformed mapping configurations
+- Invalid file paths
+- Malformed schema definitions
 - Transformation failures
 - Output writing errors
 - Validation rule violations
@@ -151,25 +215,41 @@ The API provides detailed error messages for:
 - **Chunked Processing**: Large Excel files are automatically split into sheets
 - **Memory Efficient**: Uses Polars for fast, memory-efficient data processing
 - **Parallel Processing**: Polars provides parallel execution where possible
+- **Schema Validation**: Early validation prevents processing errors
 
 ## Development
 
 ### Running Tests
+
 ```bash
-# Add tests to your project and run with:
-pytest
+python -c "
+import json
+from app.models import ETLRequest
+from app.enhanced_reader import read_data_file
+from app.transformer import apply_transformations
+from app.writer import write_fixed_width
+
+# Load example request
+with open('etl_request_example.json') as f:
+    request_data = json.load(f)
+
+request = ETLRequest(**request_data)
+print('✅ ETL Engine v2 is working correctly!')
+"
 ```
 
 ### Code Quality
+
 - Type hints throughout the codebase
 - Comprehensive error handling
 - Detailed logging
 - Clean separation of concerns
+- Pydantic model validation
 
 ## License
 
-[Add your license information here]
+This project is open source and available under the MIT License.
 
 ## Contributing
 
-[Add contribution guidelines here]
+Contributions are welcome! Please feel free to submit a Pull Request.
