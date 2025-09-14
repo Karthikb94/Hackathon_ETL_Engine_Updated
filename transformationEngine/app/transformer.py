@@ -3,7 +3,7 @@ import re
 import traceback
 from typing import Any, Dict, List, Optional, Union, Tuple
 from .exceptions import MappingError, TransformError
-from .utils import parse_transform_expression, coerce_simple_transform, parse_boolean_expr
+from .utils import coerce_simple_transform, parse_boolean_expr, parse_simple_transform
 
 class TransformationNode:
     """Represents a node in the transformation parsing tree"""
@@ -58,13 +58,33 @@ class AdvancedTransformer:
             raise TransformError(f"Failed to parse expression '{expression}': {e}") from e
     
     def _parse_with_fallback(self, expression: str, df: pl.DataFrame) -> pl.Expr:
-        """Parse expression with fallback to original parser"""
+        """Parse expression with fallback strategies (no backslash support)"""
         try:
-            # Try advanced parsing first
-            return self._parse_advanced(expression, df)
+            # Try simple parser first (handles new formats like DIRECT[ATTR()])
+            return parse_simple_transform(expression, df)
         except Exception:
-            # Fallback to original parser
-            return parse_transform_expression(expression)
+            try:
+                # Try advanced parsing
+                return self._parse_advanced(expression, df)
+            except Exception:
+                # Last resort: try to handle it as a simple field reference
+                return self._handle_simple_field_reference(expression, df)
+    
+    def _handle_simple_field_reference(self, expression: str, df: pl.DataFrame) -> pl.Expr:
+        """Handle simple field references as last resort"""
+        expression = expression.strip()
+        
+        # Remove quotes if present
+        if expression.startswith('"') and expression.endswith('"'):
+            expression = expression[1:-1]
+        elif expression.startswith("'") and expression.endswith("'"):
+            expression = expression[1:-1]
+        
+        # Check if it's a column name
+        if expression in df.columns:
+            return pl.col(expression)
+        
+        raise TransformError(f"Unable to parse expression: {expression}")
     
     def _parse_advanced(self, expression: str, df: pl.DataFrame) -> pl.Expr:
         """Advanced parsing with dependency resolution"""
@@ -739,11 +759,7 @@ def _build_expr_for_rule(df: pl.DataFrame, rule: Dict[str, Any]) -> Optional[pl.
             transformer = AdvancedTransformer()
             return transformer.parse_expression(transform, df)
         except Exception as e:
-            # Fallback to original parser
-            try:
-                return parse_transform_expression(transform)
-            except Exception as e2:
-                raise TransformError(f"Failed to apply transform for rule '{rule.get('id', 'unknown')}': {e2}") from e2
+            raise TransformError(f"Failed to apply transform for rule '{rule.get('id', 'unknown')}': {e}") from e
     else:
         # If no transform, use the first source column
         if source_columns:

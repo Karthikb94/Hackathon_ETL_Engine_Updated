@@ -4,7 +4,7 @@ import polars as pl
 from openpyxl import Workbook
 from xml.sax.saxutils import escape
 from .exceptions import WriterError
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Generator, Union
 
 EXCEL_MAX_ROWS = 1_048_000  # safe threshold
 
@@ -314,3 +314,154 @@ def write_output_with_schema(df: pl.DataFrame, base_path: str, fmt: str, mapping
         return out_path
     else:
         raise WriterError(f"Unsupported output format: {fmt}")
+
+# Streaming writer functions for large files
+def write_output_streaming(df_chunks: Generator[pl.DataFrame, None, None], 
+                          base_path: str, 
+                          fmt: str, 
+                          mapping_config: Dict[str, Any], 
+                          logger: Optional[Any] = None) -> str:
+    """
+    Write output in streaming mode for large files.
+    Processes DataFrame chunks and writes them incrementally.
+    
+    Args:
+        df_chunks: Generator yielding DataFrame chunks
+        base_path: Base path for output file
+        fmt: Output format
+        mapping_config: Mapping configuration
+        logger: Optional logger
+        
+    Returns:
+        Path to the output file
+    """
+    if fmt == "json":
+        return _write_json_streaming(df_chunks, base_path, logger)
+    elif fmt == "jsonl":
+        return _write_jsonl_streaming(df_chunks, base_path, logger)
+    elif fmt == "csv":
+        return _write_csv_streaming(df_chunks, base_path, logger)
+    elif fmt == "parquet":
+        return _write_parquet_streaming(df_chunks, base_path, logger)
+    else:
+        # For unsupported streaming formats, fall back to regular writing
+        # Collect all chunks into a single DataFrame
+        all_chunks = list(df_chunks)
+        if not all_chunks:
+            raise WriterError("No data chunks to write")
+        
+        # Concatenate all chunks
+        combined_df = pl.concat(all_chunks)
+        return write_output_with_schema(combined_df, base_path, fmt, mapping_config, logger)
+
+def _write_json_streaming(df_chunks: Generator[pl.DataFrame, None, None], 
+                         base_path: str, 
+                         logger: Optional[Any] = None) -> str:
+    """Write JSON output in streaming mode."""
+    out_path = f"{base_path}.json"
+    ensure_parent(out_path)
+    
+    try:
+        with open(out_path, 'w', encoding='utf-8') as f:
+            f.write('[')
+            first_chunk = True
+            
+            for chunk in df_chunks:
+                if chunk.is_empty():
+                    continue
+                    
+                data = chunk.to_dicts()
+                
+                for i, record in enumerate(data):
+                    if not first_chunk or i > 0:
+                        f.write(',')
+                    f.write('\n  ')
+                    json.dump(record, f, indent=2, ensure_ascii=False, default=str)
+                    first_chunk = False
+            
+            f.write('\n]')
+        
+        if logger:
+            logger.info(f"JSON streaming output written to: {out_path}")
+        return out_path
+        
+    except Exception as e:
+        raise WriterError(f"Failed to write streaming JSON: {e}") from e
+
+def _write_jsonl_streaming(df_chunks: Generator[pl.DataFrame, None, None], 
+                          base_path: str, 
+                          logger: Optional[Any] = None) -> str:
+    """Write JSONL output in streaming mode."""
+    out_path = f"{base_path}.jsonl"
+    ensure_parent(out_path)
+    
+    try:
+        with open(out_path, 'w', encoding='utf-8') as f:
+            for chunk in df_chunks:
+                if chunk.is_empty():
+                    continue
+                    
+                data = chunk.to_dicts()
+                for record in data:
+                    json.dump(record, f, ensure_ascii=False, default=str)
+                    f.write('\n')
+        
+        if logger:
+            logger.info(f"JSONL streaming output written to: {out_path}")
+        return out_path
+        
+    except Exception as e:
+        raise WriterError(f"Failed to write streaming JSONL: {e}") from e
+
+def _write_csv_streaming(df_chunks: Generator[pl.DataFrame, None, None], 
+                        base_path: str, 
+                        logger: Optional[Any] = None) -> str:
+    """Write CSV output in streaming mode."""
+    out_path = f"{base_path}.csv"
+    ensure_parent(out_path)
+    
+    try:
+        first_chunk = True
+        for chunk in df_chunks:
+            if chunk.is_empty():
+                continue
+                
+            if first_chunk:
+                # Write header for first chunk
+                chunk.write_csv(out_path)
+                first_chunk = False
+            else:
+                # Append data without header
+                chunk.write_csv(out_path, include_header=False, append=True)
+        
+        if logger:
+            logger.info(f"CSV streaming output written to: {out_path}")
+        return out_path
+        
+    except Exception as e:
+        raise WriterError(f"Failed to write streaming CSV: {e}") from e
+
+def _write_parquet_streaming(df_chunks: Generator[pl.DataFrame, None, None], 
+                            base_path: str, 
+                            logger: Optional[Any] = None) -> str:
+    """Write Parquet output in streaming mode."""
+    out_path = f"{base_path}.parquet"
+    ensure_parent(out_path)
+    
+    try:
+        # For Parquet, we need to collect all chunks and write at once
+        # as Parquet doesn't support true streaming append
+        all_chunks = list(df_chunks)
+        if not all_chunks:
+            raise WriterError("No data chunks to write")
+        
+        # Concatenate all chunks
+        combined_df = pl.concat(all_chunks)
+        combined_df.write_parquet(out_path)
+        
+        if logger:
+            logger.info(f"Parquet streaming output written to: {out_path}")
+        return out_path
+        
+    except Exception as e:
+        raise WriterError(f"Failed to write streaming Parquet: {e}") from e

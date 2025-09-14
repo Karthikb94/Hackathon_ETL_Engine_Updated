@@ -1,6 +1,6 @@
 import os
 import polars as pl
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Generator, Union
 from .exceptions import ETLError, ReaderError
 
 def read_data_file_with_schema(file_path: str, source_schema: Dict[str, Any]) -> pl.DataFrame:
@@ -19,18 +19,21 @@ def read_data_file_with_schema(file_path: str, source_schema: Dict[str, Any]) ->
         raise ReaderError(f"Input file not found: {file_path}")
     
     try:
-        file_type = source_schema.get("fileType", "").lower()
+        # Determine actual file type from file extension, not schema
+        file_extension = os.path.splitext(file_path)[1].lower()
         attributes = source_schema.get("attributes", {})
+        schema_file_type = source_schema.get("fileType", "").lower()
         
-        if file_type == "csv":
-            return _read_csv_with_schema(file_path, attributes)
-        elif file_type == "parquet":
+        # Always read based on actual file extension, but apply schema attributes
+        if file_extension == ".parquet":
             return _read_parquet_with_schema(file_path, attributes)
-        elif file_type == "json":
+        elif file_extension == ".csv":
+            return _read_csv_with_schema(file_path, attributes)
+        elif file_extension == ".json":
             return _read_json_with_schema(file_path, attributes)
-        elif file_type == "fixed_width":
+        elif file_extension in [".fw", ".fixedwidth", ".fixed_width"]:
             return _read_fixed_width_with_schema(file_path, attributes)
-        elif file_type == "xml":
+        elif file_extension == ".xml":
             return _read_xml_with_schema(file_path, attributes)
         else:
             # Fallback to extension-based reading
@@ -156,28 +159,96 @@ def _read_json_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.Dat
 
 def _read_fixed_width_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.DataFrame:
     """Read fixed-width file with schema-based column definitions"""
-    # This is a placeholder for fixed-width reading
-    # In a real implementation, you would parse the fixed-width format
-    # based on column positions and widths defined in the schema
+    # Check if file is large enough to warrant streaming
+    if should_use_streaming(file_path):
+        # Use streaming for large files
+        chunks = []
+        for chunk_df in _read_fixed_width_streaming(file_path, attributes, chunk_size=10000):
+            chunks.append(chunk_df)
+        
+        if chunks:
+            return pl.concat(chunks)
+        else:
+            # Return empty DataFrame with expected columns
+            empty_data = {attr_name: [] for attr_name in attributes.keys()}
+            return pl.DataFrame(empty_data)
     
-    # For now, read as text and split by position
-    with open(file_path, 'r') as f:
-        lines = f.readlines()
-    
-    # Extract data based on schema column positions
+    # For small files, use the original approach but optimized
     data = []
-    for line in lines:
-        row = {}
-        for attr_name, attr_info in attributes.items():
-            start_pos = attr_info.get("start_position", 0)
-            width = attr_info.get("width", 10)
-            end_pos = start_pos + width
-            
-            value = line[start_pos:end_pos].strip()
-            row[attr_name] = value
-        data.append(row)
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            row = _parse_fixed_width_line(line, attributes)
+            data.append(row)
     
     return pl.DataFrame(data)
+
+def _parse_fixed_width_line(line: str, attributes: Dict[str, Any]) -> Dict[str, Any]:
+    """Parse a single line from a fixed-width file based on schema attributes"""
+    row = {}
+    for attr_name, attr_info in attributes.items():
+        start_pos = attr_info.get("start_position", 0)
+        width = attr_info.get("width", 10)
+        end_pos = start_pos + width
+        
+        # Ensure we don't exceed line length
+        if end_pos > len(line):
+            end_pos = len(line)
+        
+        value = line[start_pos:end_pos].strip()
+        
+        # Apply data type conversion
+        data_type = attr_info.get("dataType", "string").lower()
+        if data_type == "integer":
+            try:
+                row[attr_name] = int(value) if value else 0
+            except ValueError:
+                row[attr_name] = 0
+        elif data_type == "float":
+            try:
+                row[attr_name] = float(value) if value else 0.0
+            except ValueError:
+                row[attr_name] = 0.0
+        elif data_type == "boolean":
+            row[attr_name] = value.lower() in ('1', 'true', 'y', 'yes')
+        elif data_type == "date":
+            # Keep as string for now, date parsing will be handled by Polars
+            row[attr_name] = value
+        else:
+            row[attr_name] = value
+    
+    return row
+
+def _read_fixed_width_streaming(file_path: str, attributes: Dict[str, Any], chunk_size: int = 10000) -> Generator[pl.DataFrame, None, None]:
+    """Stream fixed-width file in chunks to reduce memory usage"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            chunk_data = []
+            
+            for line_num, line in enumerate(f, 1):
+                # Skip empty lines
+                if not line.strip():
+                    continue
+                
+                try:
+                    row = _parse_fixed_width_line(line, attributes)
+                    chunk_data.append(row)
+                    
+                    # Yield chunk when it reaches the desired size
+                    if len(chunk_data) >= chunk_size:
+                        yield pl.DataFrame(chunk_data)
+                        chunk_data = []
+                        
+                except Exception as e:
+                    # Log parsing error but continue processing
+                    print(f"Warning: Error parsing line {line_num}: {e}")
+                    continue
+            
+            # Yield remaining data
+            if chunk_data:
+                yield pl.DataFrame(chunk_data)
+                
+    except Exception as e:
+        raise ReaderError(f"Failed to stream fixed-width file: {e}") from e
 
 def _read_xml_with_schema(file_path: str, attributes: Dict[str, Any]) -> pl.DataFrame:
     """Read XML file with schema-based column extraction"""
@@ -362,3 +433,149 @@ def auto_flatten_structs(df: pl.DataFrame) -> pl.DataFrame:
         return df.select(flattened_columns)
     else:
         return df
+
+# Streaming functions for large files
+LARGE_FILE_THRESHOLD = 100 * 1024 * 1024  # 100MB
+
+def should_use_streaming(file_path: str) -> bool:
+    """Check if file is large enough to warrant streaming processing."""
+    try:
+        return os.path.getsize(file_path) > LARGE_FILE_THRESHOLD
+    except OSError:
+        return False
+
+def read_data_file_with_schema_streaming(file_path: str, source_schema: Dict[str, Any], 
+                                       chunk_size: int = 10000) -> Generator[pl.DataFrame, None, None]:
+    """
+    Read data file in streaming mode for large files.
+    Yields DataFrames in chunks to reduce memory usage.
+    
+    Args:
+        file_path: Path to the data file
+        source_schema: Source schema definition with attributes
+        chunk_size: Number of rows per chunk
+        
+    Yields:
+        Polars DataFrame chunks
+    """
+    if not os.path.exists(file_path):
+        raise ReaderError(f"Input file not found: {file_path}")
+    
+    try:
+        file_type = source_schema.get("fileType", "").lower()
+        attributes = source_schema.get("attributes", {})
+        
+        if file_type == "parquet":
+            yield from _read_parquet_streaming(file_path, attributes, chunk_size)
+        elif file_type == "csv":
+            yield from _read_csv_streaming(file_path, attributes, chunk_size)
+        elif file_type == "json":
+            yield from _read_json_streaming(file_path, attributes, chunk_size)
+        elif file_type == "fixed_width":
+            yield from _read_fixed_width_streaming(file_path, attributes, chunk_size)
+        else:
+            # For unsupported streaming formats, fall back to regular reading
+            df = read_data_file_with_schema(file_path, source_schema)
+            yield df
+            
+    except Exception as e:
+        raise ReaderError(f"Failed to read file with streaming: {e}") from e
+
+def _read_parquet_streaming(file_path: str, attributes: Dict[str, Any], 
+                           chunk_size: int) -> Generator[pl.DataFrame, None, None]:
+    """Stream Parquet file in chunks."""
+    try:
+        # Use Polars streaming for Parquet files
+        for df in pl.scan_parquet(file_path).collect_streaming(chunk_size=chunk_size):
+            if not df.is_empty():
+                # Apply schema-based column ordering and types
+                df = _apply_schema_to_dataframe(df, attributes)
+                yield df
+    except Exception as e:
+        raise ReaderError(f"Failed to stream Parquet file: {e}") from e
+
+def _read_csv_streaming(file_path: str, attributes: Dict[str, Any], 
+                       chunk_size: int) -> Generator[pl.DataFrame, None, None]:
+    """Stream CSV file in chunks."""
+    try:
+        # Use Polars streaming for CSV files
+        for df in pl.scan_csv(file_path).collect_streaming(chunk_size=chunk_size):
+            if not df.is_empty():
+                # Apply schema-based column ordering and types
+                df = _apply_schema_to_dataframe(df, attributes)
+                yield df
+    except Exception as e:
+        raise ReaderError(f"Failed to stream CSV file: {e}") from e
+
+def _read_json_streaming(file_path: str, attributes: Dict[str, Any], 
+                        chunk_size: int) -> Generator[pl.DataFrame, None, None]:
+    """Stream JSON file in chunks."""
+    try:
+        # For JSON, we need to read in chunks manually
+        import json
+        
+        with open(file_path, 'r', encoding='utf-8') as f:
+            chunk = []
+            for line in f:
+                try:
+                    data = json.loads(line.strip())
+                    chunk.append(data)
+                    
+                    if len(chunk) >= chunk_size:
+                        df = pl.DataFrame(chunk)
+                        if not df.is_empty():
+                            df = _apply_schema_to_dataframe(df, attributes)
+                            yield df
+                        chunk = []
+                except json.JSONDecodeError:
+                    continue
+            
+            # Process remaining chunk
+            if chunk:
+                df = pl.DataFrame(chunk)
+                if not df.is_empty():
+                    df = _apply_schema_to_dataframe(df, attributes)
+                    yield df
+                    
+    except Exception as e:
+        raise ReaderError(f"Failed to stream JSON file: {e}") from e
+
+def _apply_schema_to_dataframe(df: pl.DataFrame, attributes: Dict[str, Any]) -> pl.DataFrame:
+    """Apply schema-based column ordering and types to DataFrame."""
+    if not attributes:
+        return df
+    
+    # Extract column information from schema
+    columns = []
+    dtypes = {}
+    
+    # Sort attributes by column_no if available
+    sorted_attrs = sorted(attributes.items(), 
+                         key=lambda x: x[1].get("column_no", 999))
+    
+    for field_name, field_info in sorted_attrs:
+        if field_name in df.columns:
+            columns.append(field_name)
+            # Map data types
+            data_type = field_info.get("dataType", "string").lower()
+            if data_type == "integer":
+                dtypes[field_name] = pl.Int64
+            elif data_type == "float":
+                dtypes[field_name] = pl.Float64
+            elif data_type == "boolean":
+                dtypes[field_name] = pl.Boolean
+            elif data_type == "date":
+                dtypes[field_name] = pl.Date
+            elif data_type == "datetime":
+                dtypes[field_name] = pl.Datetime
+            else:
+                dtypes[field_name] = pl.Utf8
+    
+    # Select and cast columns
+    if columns:
+        df = df.select(columns)
+        for col, dtype in dtypes.items():
+            if col in df.columns:
+                df = df.with_columns(pl.col(col).cast(dtype, strict=False))
+    
+    return df

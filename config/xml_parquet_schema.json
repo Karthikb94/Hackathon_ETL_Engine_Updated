@@ -1,0 +1,86 @@
+{
+  "role": "source",
+  "fileType": "parquet",
+  "schemaId": "xml_parquet_schema",
+  "description": "Schema for Parquet file created from XML source (flattened)",
+  "attributes": {
+    "customer_id": {
+      "dataType": "integer",
+      "column_no": 1,
+      "start_position": 0,
+      "width": 8
+    },
+    "name": {
+      "dataType": "string",
+      "column_no": 2,
+      "start_position": 8,
+      "width": 30
+    },
+    "email": {
+      "dataType": "string",
+      "column_no": 3,
+      "start_position": 38,
+      "width": 40
+    },
+    "phone": {
+      "dataType": "string",
+      "column_no": 4,
+      "start_position": 78,
+      "width": 15
+    },
+    "street": {
+      "dataType": "string",
+      "column_no": 5,
+      "start_position": 93,
+      "width": 25
+    },
+    "city": {
+      "dataType": "string",
+      "column_no": 6,
+      "start_position": 118,
+      "width": 20
+    },
+    "state": {
+      "dataType": "string",
+      "column_no": 7,
+      "start_position": 138,
+      "width": 5
+    },
+    "zip": {
+      "dataType": "string",
+      "column_no": 8,
+      "start_position": 143,
+      "width": 10
+    },
+    "newsletter": {
+      "dataType": "boolean",
+      "column_no": 9,
+      "start_position": 153,
+      "width": 1
+    },
+    "sms_alerts": {
+      "dataType": "boolean",
+      "column_no": 10,
+      "start_position": 154,
+      "width": 1
+    },
+    "language": {
+      "dataType": "string",
+      "column_no": 11,
+      "start_position": 155,
+      "width": 5
+    },
+    "total_orders": {
+      "dataType": "integer",
+      "column_no": 12,
+      "start_position": 160,
+      "width": 3
+    },
+    "total_amount": {
+      "dataType": "float",
+      "column_no": 13,
+      "start_position": 163,
+      "width": 10
+    }
+  }
+}

@@ -1,0 +1,863 @@
+{
+  "description": "Comprehensive ETL Engine Transformation Samples - All Source/Target Combinations",
+  "version": "1.0.0",
+  "created": "2025-09-14",
+  "samples": [
+    {
+      "scenario": "Parquet (Source CSV) → JSON",
+      "description": "Transform parquet file that originated from CSV data to JSON format",
+      "source_file_path": "storage/input/parquet_from_csv_comprehensive.parquet",
+      "source_schema": {
+        "role": "source",
+        "fileType": "csv",
+        "schemaId": "schm-csv-1001",
+        "schemaName": "employee_csv_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "first_name": {
+            "dataType": "string",
+            "column_no": 2
+          },
+          "last_name": {
+            "dataType": "string",
+            "column_no": 3
+          },
+          "email": {
+            "dataType": "string",
+            "column_no": 4
+          },
+          "department": {
+            "dataType": "string",
+            "column_no": 5
+          },
+          "salary": {
+            "dataType": "float",
+            "column_no": 6
+          }
+        }
+      },
+      "target_schema": {
+        "role": "target",
+        "fileType": "json",
+        "schemaId": "schm-json-2001",
+        "schemaName": "employee_json_v1",
+        "attributes": {}
+      },
+      "transformation_mapping": {
+        "mappingId": "parquet-csv-to-json-001",
+        "mappingName": "parquet_csv_to_json_transformation",
+        "createdAt": "2025-09-14T23:35:00.000Z",
+        "sourceSchemaId": "schm-csv-1001",
+        "targetSchemaId": "schm-json-2001",
+        "rules": [
+          {
+            "id": "pass_employee_id",
+            "trns": "",
+            "affected_source": ["employee_id"],
+            "affected_target": "employee_id"
+          },
+          {
+            "id": "full_name",
+            "trns": "CONCAT(first_name, ' ', last_name)",
+            "affected_source": ["first_name", "last_name"],
+            "affected_target": "full_name"
+          },
+          {
+            "id": "pass_email",
+            "trns": "LOWER(email)",
+            "affected_source": ["email"],
+            "affected_target": "email"
+          },
+          {
+            "id": "pass_department",
+            "trns": "UPPER(department)",
+            "affected_source": ["department"],
+            "affected_target": "department"
+          },
+          {
+            "id": "annual_salary",
+            "trns": "MUL(salary, 12)",
+            "affected_source": ["salary"],
+            "affected_target": "annual_salary"
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Parquet (Source CSV) → Fixed-Width",
+      "description": "Transform parquet file that originated from CSV data to Fixed-Width format",
+      "source_file_path": "storage/input/parquet_from_csv_comprehensive.parquet",
+      "source_schema": {
+        "role": "source",
+        "fileType": "csv",
+        "schemaId": "schm-csv-1001",
+        "schemaName": "employee_csv_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "first_name": {
+            "dataType": "string",
+            "column_no": 2
+          },
+          "last_name": {
+            "dataType": "string",
+            "column_no": 3
+          },
+          "email": {
+            "dataType": "string",
+            "column_no": 4
+          },
+          "department": {
+            "dataType": "string",
+            "column_no": 5
+          },
+          "salary": {
+            "dataType": "float",
+            "column_no": 6
+          }
+        }
+      },
+      "target_schema": {
+        "role": "target",
+        "fileType": "fixedwidth",
+        "schemaId": "schm-fixed-2001",
+        "schemaName": "employee_fixedwidth_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "string",
+            "column_no": 1,
+            "start_position": 1,
+            "width": 8
+          },
+          "full_name": {
+            "dataType": "string",
+            "column_no": 2,
+            "start_position": 9,
+            "width": 25
+          },
+          "email": {
+            "dataType": "string",
+            "column_no": 3,
+            "start_position": 34,
+            "width": 30
+          },
+          "department": {
+            "dataType": "string",
+            "column_no": 4,
+            "start_position": 64,
+            "width": 20
+          },
+          "annual_salary": {
+            "dataType": "string",
+            "column_no": 5,
+            "start_position": 84,
+            "width": 12
+          }
+        }
+      },
+      "transformation_mapping": {
+        "mappingId": "parquet-csv-to-fixedwidth-001",
+        "mappingName": "parquet_csv_to_fixedwidth_transformation",
+        "createdAt": "2025-09-14T23:35:00.000Z",
+        "sourceSchemaId": "schm-csv-1001",
+        "targetSchemaId": "schm-fixed-2001",
+        "rules": [
+          {
+            "id": "format_employee_id",
+            "trns": "DIRECT[ATTR(employee_id)]",
+            "affected_source": ["employee_id"],
+            "affected_target": "employee_id"
+          },
+          {
+            "id": "full_name",
+            "trns": "CONCAT(first_name, ' ', last_name)",
+            "affected_source": ["first_name", "last_name"],
+            "affected_target": "full_name"
+          },
+          {
+            "id": "pass_email",
+            "trns": "LOWER(email)",
+            "affected_source": ["email"],
+            "affected_target": "email"
+          },
+          {
+            "id": "pass_department",
+            "trns": "UPPER(department)",
+            "affected_source": ["department"],
+            "affected_target": "department"
+          },
+          {
+            "id": "annual_salary",
+            "trns": "MUL(salary, 12)",
+            "affected_source": ["salary"],
+            "affected_target": "annual_salary"
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Parquet (Source CSV) → XML",
+      "description": "Transform parquet file that originated from CSV data to XML format",
+      "source_file_path": "storage/input/parquet_from_csv_comprehensive.parquet",
+      "source_schema": {
+        "role": "source",
+        "fileType": "csv",
+        "schemaId": "schm-csv-1001",
+        "schemaName": "employee_csv_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "first_name": {
+            "dataType": "string",
+            "column_no": 2
+          },
+          "last_name": {
+            "dataType": "string",
+            "column_no": 3
+          },
+          "email": {
+            "dataType": "string",
+            "column_no": 4
+          },
+          "department": {
+            "dataType": "string",
+            "column_no": 5
+          },
+          "salary": {
+            "dataType": "float",
+            "column_no": 6
+          }
+        }
+      },
+      "target_schema": {
+        "role": "target",
+        "fileType": "xml",
+        "schemaId": "schm-xml-2001",
+        "schemaName": "employee_xml_v1",
+        "attributes": {
+          "employee": {
+            "dataType": "object",
+            "column_no": 1
+          }
+        }
+      },
+      "transformation_mapping": {
+        "mappingId": "parquet-csv-to-xml-001",
+        "mappingName": "parquet_csv_to_xml_transformation",
+        "createdAt": "2025-09-14T23:35:00.000Z",
+        "sourceSchemaId": "schm-csv-1001",
+        "targetSchemaId": "schm-xml-2001",
+        "rules": [
+          {
+            "id": "pass_employee_id",
+            "trns": "",
+            "affected_source": ["employee_id"],
+            "affected_target": "employee_id"
+          },
+          {
+            "id": "pass_first_name",
+            "trns": "UPPER(first_name)",
+            "affected_source": ["first_name"],
+            "affected_target": "first_name"
+          },
+          {
+            "id": "pass_last_name",
+            "trns": "UPPER(last_name)",
+            "affected_source": ["last_name"],
+            "affected_target": "last_name"
+          },
+          {
+            "id": "pass_email",
+            "trns": "LOWER(email)",
+            "affected_source": ["email"],
+            "affected_target": "email"
+          },
+          {
+            "id": "pass_department",
+            "trns": "UPPER(department)",
+            "affected_source": ["department"],
+            "affected_target": "department"
+          },
+          {
+            "id": "monthly_salary",
+            "trns": "",
+            "affected_source": ["salary"],
+            "affected_target": "salary"
+          },
+          {
+            "id": "annual_salary",
+            "trns": "MUL(salary, 12)",
+            "affected_source": ["salary"],
+            "affected_target": "annual_salary"
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Parquet (Source JSON) → CSV",
+      "description": "Transform parquet file that originated from JSON data to CSV format",
+      "source_file_path": "storage/input/parquet_from_json_comprehensive.parquet",
+      "source_schema": {
+        "role": "source",
+        "fileType": "json",
+        "schemaId": "schm-json-1001",
+        "schemaName": "employee_json_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "personal_info": {
+            "dataType": "object",
+            "column_no": 2
+          },
+          "professional_info": {
+            "dataType": "object",
+            "column_no": 3
+          },
+          "compensation": {
+            "dataType": "object",
+            "column_no": 4
+          },
+          "performance": {
+            "dataType": "object",
+            "column_no": 5
+          },
+          "skills": {
+            "dataType": "array",
+            "column_no": 6
+          },
+          "hire_date": {
+            "dataType": "string",
+            "column_no": 7
+          }
+        }
+      },
+      "target_schema": {
+        "role": "target",
+        "fileType": "csv",
+        "schemaId": "schm-csv-2001",
+        "schemaName": "employee_csv_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "first_name": {
+            "dataType": "string",
+            "column_no": 2
+          },
+          "last_name": {
+            "dataType": "string",
+            "column_no": 3
+          },
+          "email": {
+            "dataType": "string",
+            "column_no": 4
+          },
+          "department": {
+            "dataType": "string",
+            "column_no": 5
+          },
+          "position": {
+            "dataType": "string",
+            "column_no": 6
+          },
+          "salary": {
+            "dataType": "float",
+            "column_no": 7
+          },
+          "total_compensation": {
+            "dataType": "float",
+            "column_no": 8
+          },
+          "performance_rating": {
+            "dataType": "float",
+            "column_no": 9
+          },
+          "skills_list": {
+            "dataType": "string",
+            "column_no": 10
+          }
+        }
+      },
+      "transformation_mapping": {
+        "mappingId": "parquet-json-to-csv-001",
+        "mappingName": "parquet_json_to_csv_transformation",
+        "createdAt": "2025-09-14T23:45:00.000Z",
+        "sourceSchemaId": "schm-json-1001",
+        "targetSchemaId": "schm-csv-2001",
+        "rules": [
+          {
+            "id": "pass_employee_id",
+            "trns": "",
+            "affected_source": ["employee_id"],
+            "affected_target": "employee_id"
+          },
+          {
+            "id": "extract_first_name",
+            "trns": "DIRECT[ATTR(personal_info.first_name)]",
+            "affected_source": ["personal_info"],
+            "affected_target": "first_name"
+          },
+          {
+            "id": "extract_last_name",
+            "trns": "DIRECT[ATTR(personal_info.last_name)]",
+            "affected_source": ["personal_info"],
+            "affected_target": "last_name"
+          },
+          {
+            "id": "extract_email",
+            "trns": "LOWER(personal_info.email)",
+            "affected_source": ["personal_info"],
+            "affected_target": "email"
+          },
+          {
+            "id": "extract_department",
+            "trns": "UPPER(personal_info.department)",
+            "affected_source": ["professional_info"],
+            "affected_target": "department"
+          },
+          {
+            "id": "extract_position",
+            "trns": "DIRECT[ATTR(personal_info.position)]",
+            "affected_source": ["professional_info"],
+            "affected_target": "position"
+          },
+          {
+            "id": "extract_salary",
+            "trns": "",
+            "affected_source": ["compensation"],
+            "affected_target": "salary"
+          },
+          {
+            "id": "extract_total_compensation",
+            "trns": "DIRECT[ATTR(compensation.total)]",
+            "affected_source": ["compensation"],
+            "affected_target": "total_compensation"
+          },
+          {
+            "id": "extract_performance_rating",
+            "trns": "DIRECT[ATTR(performance.rating)]",
+            "affected_source": ["performance"],
+            "affected_target": "performance_rating"
+          },
+          {
+            "id": "extract_skills",
+            "trns": "DIRECT[ATTR(skills)]",
+            "affected_source": ["skills"],
+            "affected_target": "skills_list"
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Parquet (Source JSON) → Fixed-Width",
+      "description": "Transform parquet file that originated from JSON data to Fixed-Width format",
+      "source_file_path": "storage/input/parquet_from_json_comprehensive.parquet",
+      "source_schema": {
+        "role": "source",
+        "fileType": "json",
+        "schemaId": "schm-json-1001",
+        "schemaName": "employee_json_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "personal_info": {
+            "dataType": "object",
+            "column_no": 2
+          },
+          "professional_info": {
+            "dataType": "object",
+            "column_no": 3
+          },
+          "compensation": {
+            "dataType": "object",
+            "column_no": 4
+          },
+          "performance": {
+            "dataType": "object",
+            "column_no": 5
+          },
+          "skills": {
+            "dataType": "array",
+            "column_no": 6
+          },
+          "hire_date": {
+            "dataType": "string",
+            "column_no": 7
+          }
+        }
+      },
+      "target_schema": {
+        "role": "target",
+        "fileType": "fixedwidth",
+        "schemaId": "schm-fixed-2001",
+        "schemaName": "employee_fixedwidth_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "string",
+            "column_no": 1,
+            "start_position": 1,
+            "width": 8
+          },
+          "full_name": {
+            "dataType": "string",
+            "column_no": 2,
+            "start_position": 9,
+            "width": 30
+          },
+          "email": {
+            "dataType": "string",
+            "column_no": 3,
+            "start_position": 39,
+            "width": 35
+          },
+          "department": {
+            "dataType": "string",
+            "column_no": 4,
+            "start_position": 74,
+            "width": 20
+          },
+          "position": {
+            "dataType": "string",
+            "column_no": 5,
+            "start_position": 94,
+            "width": 25
+          },
+          "salary": {
+            "dataType": "string",
+            "column_no": 6,
+            "start_position": 119,
+            "width": 10
+          },
+          "performance_rating": {
+            "dataType": "string",
+            "column_no": 7,
+            "start_position": 129,
+            "width": 8
+          },
+          "years_experience": {
+            "dataType": "string",
+            "column_no": 8,
+            "start_position": 137,
+            "width": 3
+          }
+        }
+      },
+      "transformation_mapping": {
+        "mappingId": "parquet-json-to-fixedwidth-001",
+        "mappingName": "parquet_json_to_fixedwidth_transformation",
+        "createdAt": "2025-09-14T23:45:00.000Z",
+        "sourceSchemaId": "schm-json-1001",
+        "targetSchemaId": "schm-fixed-2001",
+        "rules": [
+          {
+            "id": "format_employee_id",
+            "trns": "DIRECT[ATTR(employee_id)]",
+            "affected_source": ["employee_id"],
+            "affected_target": "employee_id"
+          },
+          {
+            "id": "full_name",
+            "trns": "CONCAT(personal_info.first_name, ' ', personal_info.last_name)",
+            "affected_source": ["personal_info"],
+            "affected_target": "full_name"
+          },
+          {
+            "id": "extract_email",
+            "trns": "LOWER(personal_info.email)",
+            "affected_source": ["personal_info"],
+            "affected_target": "email"
+          },
+          {
+            "id": "extract_department",
+            "trns": "UPPER(personal_info.department)",
+            "affected_source": ["professional_info"],
+            "affected_target": "department"
+          },
+          {
+            "id": "extract_position",
+            "trns": "DIRECT[ATTR(personal_info.position)]",
+            "affected_source": ["professional_info"],
+            "affected_target": "position"
+          },
+          {
+            "id": "extract_salary",
+            "trns": "DIRECT[ATTR(compensation.salary)]",
+            "affected_source": ["compensation"],
+            "affected_target": "salary"
+          },
+          {
+            "id": "extract_performance_rating",
+            "trns": "DIRECT[ATTR(performance.rating)]",
+            "affected_source": ["performance"],
+            "affected_target": "performance_rating"
+          },
+          {
+            "id": "extract_years_experience",
+            "trns": "DIRECT[ATTR(personal_info.years_experience)]",
+            "affected_source": ["professional_info"],
+            "affected_target": "years_experience"
+          }
+        ]
+      }
+    },
+    {
+      "scenario": "Parquet (Source JSON) → XML",
+      "description": "Transform parquet file that originated from JSON data to XML format",
+      "source_file_path": "storage/input/parquet_from_json_comprehensive.parquet",
+      "source_schema": {
+        "role": "source",
+        "fileType": "json",
+        "schemaId": "schm-json-1001",
+        "schemaName": "employee_json_v1",
+        "attributes": {
+          "employee_id": {
+            "dataType": "integer",
+            "column_no": 1
+          },
+          "personal_info": {
+            "dataType": "object",
+            "column_no": 2
+          },
+          "professional_info": {
+            "dataType": "object",
+            "column_no": 3
+          },
+          "compensation": {
+            "dataType": "object",
+            "column_no": 4
+          },
+          "performance": {
+            "dataType": "object",
+            "column_no": 5
+          },
+          "skills": {
+            "dataType": "array",
+            "column_no": 6
+          },
+          "hire_date": {
+            "dataType": "string",
+            "column_no": 7
+          }
+        }
+      },
+      "target_schema": {
+        "role": "target",
+        "fileType": "xml",
+        "schemaId": "schm-xml-2001",
+        "schemaName": "employee_xml_v1",
+        "attributes": {
+          "employee": {
+            "dataType": "object",
+            "column_no": 1
+          }
+        }
+      },
+      "transformation_mapping": {
+        "mappingId": "parquet-json-to-xml-001",
+        "mappingName": "parquet_json_to_xml_transformation",
+        "createdAt": "2025-09-14T23:45:00.000Z",
+        "sourceSchemaId": "schm-json-1001",
+        "targetSchemaId": "schm-xml-2001",
+        "rules": [
+          {
+            "id": "pass_employee_id",
+            "trns": "",
+            "affected_source": ["employee_id"],
+            "affected_target": "employee_id"
+          },
+          {
+            "id": "extract_first_name",
+            "trns": "UPPER(personal_info.first_name)",
+            "affected_source": ["personal_info"],
+            "affected_target": "first_name"
+          },
+          {
+            "id": "extract_last_name",
+            "trns": "UPPER(personal_info.last_name)",
+            "affected_source": ["personal_info"],
+            "affected_target": "last_name"
+          },
+          {
+            "id": "extract_email",
+            "trns": "LOWER(personal_info.email)",
+            "affected_source": ["personal_info"],
+            "affected_target": "email"
+          },
+          {
+            "id": "extract_phone",
+            "trns": "DIRECT[ATTR(personal_info.phone)]",
+            "affected_source": ["personal_info"],
+            "affected_target": "phone"
+          },
+          {
+            "id": "extract_location",
+            "trns": "DIRECT[ATTR(personal_info.location)]",
+            "affected_source": ["personal_info"],
+            "affected_target": "location"
+          },
+          {
+            "id": "extract_department",
+            "trns": "UPPER(personal_info.department)",
+            "affected_source": ["professional_info"],
+            "affected_target": "department"
+          },
+          {
+            "id": "extract_position",
+            "trns": "DIRECT[ATTR(personal_info.position)]",
+            "affected_source": ["professional_info"],
+            "affected_target": "position"
+          },
+          {
+            "id": "extract_is_manager",
+            "trns": "DIRECT[ATTR(personal_info.is_manager)]",
+            "affected_source": ["professional_info"],
+            "affected_target": "is_manager"
+          },
+          {
+            "id": "extract_years_experience",
+            "trns": "DIRECT[ATTR(personal_info.years_experience)]",
+            "affected_source": ["professional_info"],
+            "affected_target": "years_experience"
+          },
+          {
+            "id": "extract_salary",
+            "trns": "DIRECT[ATTR(compensation.salary)]",
+            "affected_source": ["compensation"],
+            "affected_target": "salary"
+          },
+          {
+            "id": "extract_bonus",
+            "trns": "DIRECT[ATTR(compensation.bonus)]",
+            "affected_source": ["compensation"],
+            "affected_target": "bonus"
+          },
+          {
+            "id": "extract_total_compensation",
+            "trns": "DIRECT[ATTR(compensation.total)]",
+            "affected_source": ["compensation"],
+            "affected_target": "total_compensation"
+          },
+          {
+            "id": "extract_performance_rating",
+            "trns": "DIRECT[ATTR(performance.rating)]",
+            "affected_source": ["performance"],
+            "affected_target": "performance_rating"
+          },
+          {
+            "id": "extract_projects_completed",
+            "trns": "DIRECT[ATTR(performance.projects_completed)]",
+            "affected_source": ["performance"],
+            "affected_target": "projects_completed"
+          },
+          {
+            "id": "extract_skills",
+            "trns": "DIRECT[ATTR(skills)]",
+            "affected_source": ["skills"],
+            "affected_target": "skills"
+          },
+          {
+            "id": "pass_hire_date",
+            "trns": "",
+            "affected_source": ["hire_date"],
+            "affected_target": "hire_date"
+          }
+        ]
+      }
+    }
+  ],
+  "transformation_functions": {
+    "description": "Supported transformation functions in the ETL Engine",
+    "string_functions": [
+      "UPPER(field_name) - Convert to uppercase",
+      "LOWER(field_name) - Convert to lowercase", 
+      "CONCAT(field1, 'separator', field2) - Concatenate fields",
+      "TRIM(field_name) - Remove leading/trailing spaces",
+      "DIRECT[ATTR(field_name)] - Direct field reference"
+    ],
+    "math_functions": [
+      "ADD(field1, field2) - Addition",
+      "SUB(field1, field2) - Subtraction",
+      "MUL(field1, field2) - Multiplication",
+      "DIV(field1, field2) - Division"
+    ],
+    "nested_field_access": [
+      "personal_info.first_name - Access nested JSON fields",
+      "compensation.salary - Access nested object properties",
+      "DIRECT[ATTR(nested.field)] - Direct nested field access"
+    ],
+    "pass_through": [
+      "'' - Empty string for direct field copying",
+      "No trns field - Direct field mapping"
+    ]
+  },
+  "schema_types": {
+    "description": "Supported schema types and their attributes",
+    "source_schemas": {
+      "csv": {
+        "fileType": "csv",
+        "attributes": {
+          "field_name": {
+            "dataType": "string|integer|float|date",
+            "column_no": "number"
+          }
+        }
+      },
+      "json": {
+        "fileType": "json", 
+        "attributes": {
+          "field_name": {
+            "dataType": "object|array|string|integer|float",
+            "column_no": "number"
+          }
+        }
+      }
+    },
+    "target_schemas": {
+      "json": {
+        "fileType": "json",
+        "attributes": {}
+      },
+      "csv": {
+        "fileType": "csv",
+        "attributes": {
+          "field_name": {
+            "dataType": "string|integer|float|date",
+            "column_no": "number"
+          }
+        }
+      },
+      "fixedwidth": {
+        "fileType": "fixedwidth",
+        "attributes": {
+          "field_name": {
+            "dataType": "string",
+            "column_no": "number",
+            "start_position": "number",
+            "width": "number"
+          }
+        }
+      },
+      "xml": {
+        "fileType": "xml",
+        "attributes": {
+          "root_element": {
+            "dataType": "object",
+            "column_no": "number"
+          }
+        }
+      }
+    }
+  }
+}

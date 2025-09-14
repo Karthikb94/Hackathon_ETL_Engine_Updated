@@ -3,13 +3,14 @@ import json
 import time
 import polars as pl
 from datetime import datetime
+from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from .logger import get_logger
-from .reader import read_data_file, read_data_file_with_schema
+from .reader import read_data_file, read_data_file_with_schema, should_use_streaming, read_data_file_with_schema_streaming
 from .transformer import apply_transformations_from_rules
-from .writer import write_output, write_output_with_schema
+from .writer import write_output, write_output_with_schema, write_output_streaming
 from .exceptions import ETLError, MappingError, TransformError, ValidationError, WriterError
 from .utils import timestamp_run_id
 from .error_handler import TransformationErrorHandler, create_error_response
@@ -77,12 +78,10 @@ async def transform_data(request: UnifiedTransformRequest):
     logger, log_path = get_logger(run_id, logs_dir=BASE_LOGS_DIR)
     
     start_time = time.time()
-    logger.info("Unified ETL run started")
     
     try:
         # Use the required source file path
         source_file_path = request.source_file_path
-        logger.info(f"Using source file path: {source_file_path}")
         
         # Validate source file exists and is parquet
         if not os.path.exists(source_file_path):
@@ -94,15 +93,12 @@ async def transform_data(request: UnifiedTransformRequest):
         
         # Use the required source schema (mandatory for parquet files)
         source_schema = request.source_schema
-        logger.info("Using provided source schema for parquet file reading")
         
         # Use the required target schema
         target_schema = request.target_schema
-        logger.info("Using target schema")
         
         # Use the required transformation mapping
         transformation_mapping = request.transformation_mapping
-        logger.info("Using transformation mapping")
         
         # Determine output format from target schema
         output_format = "json"  # Default format
@@ -117,15 +113,10 @@ async def transform_data(request: UnifiedTransformRequest):
             else:
                 output_format = "json"
         
-        logger.info(f"Target output format determined: {output_format}")
-        logger.info(f"Target schema file type: {target_schema.get('fileType', 'unknown')}")
-        logger.info(f"Target schema attributes count: {len(target_schema.get('attributes', {}))}")
-        
         # Extract rules from transformation mapping
         try:
             if "rules" in transformation_mapping:
                 rules = transformation_mapping["rules"]
-                logger.info(f"Found {len(rules)} transformation rules")
             elif "mappings" in transformation_mapping:
                 # Legacy format - convert to rules format
                 rules = []
@@ -137,102 +128,189 @@ async def transform_data(request: UnifiedTransformRequest):
                         "affected_target": mapping.get("affected_target", "")
                     }
                     rules.append(rule)
-                logger.info(f"Converted legacy format to {len(rules)} rules")
             else:
                 raise ValueError("No 'rules' or 'mappings' found in transformation mapping")
         except Exception as e:
             logger.error(f"Failed to extract rules: {e}")
             raise HTTPException(status_code=400, detail=f"Failed to extract rules: {e}")
         
-        # Create unique output filename with timestamp
-        timestamp = timestamp_run_id()
+        # Create unique output filename with timestamp (reuse run_id)
         # Generate filename based on source file
         source_basename = os.path.splitext(os.path.basename(source_file_path))[0]
-        output_filename_with_timestamp = f"{source_basename}_transformed_{timestamp}"
+        output_filename_with_timestamp = f"{source_basename}_transformed_{run_id}"
         output_path = os.path.join(BASE_OUTPUT_DIR, output_filename_with_timestamp)
         
-        # Create unique log filename
-        log_filename = f"etl_{timestamp}.log"
+        # Create unique log filename (reuse run_id)
+        log_filename = f"etl_{run_id}.log"
         log_path = os.path.join(BASE_LOGS_DIR, log_filename)
         
-        logger.info(f"Processing files:")
-        logger.info(f"  Source: {source_file_path}")
-        logger.info(f"  Output: {output_path}")
+        # Structured logging - batch all processing info
+        processing_info = {
+            "run_id": run_id,
+            "source_file": source_file_path,
+            "source_schema_type": source_schema.get('fileType', 'unknown'),
+            "source_schema_attributes": len(source_schema.get('attributes', {})),
+            "target_schema_type": target_schema.get('fileType', 'unknown'),
+            "target_schema_attributes": len(target_schema.get('attributes', {})),
+            "output_format": output_format,
+            "rules_count": len(rules),
+            "output_path": output_path
+        }
+        logger.info(f"ETL processing started: {processing_info}")
         
-        # Read parquet file using source schema (mandatory)
-        try:
-            # Always use source schema for parquet files (converted from fixed-width/XML need proper schema)
-            logger.info("Reading parquet file using provided source schema")
-            logger.info(f"Source schema file type: {source_schema.get('fileType', 'unknown')}")
-            logger.info(f"Source schema attributes count: {len(source_schema.get('attributes', {}))}")
-            
-            df = read_data_file_with_schema(source_file_path, source_schema)
-            logger.info(f"Parquet data loaded with schema: {df.shape[0]} rows, {df.shape[1]} columns")
-            
-            # Log column information for debugging
-            logger.info(f"Available columns: {list(df.columns)}")
-            logger.info(f"DataFrame schema: {df.schema}")
-            logger.info(f"DataFrame shape: {df.shape}")
-            
-            # Log source format information for tracking
-            original_format = source_schema.get('fileType', 'unknown')
-            logger.info(f"Original source format before parquet conversion: {original_format}")
-            logger.info("Parquet file is ready for processing with proper schema-based field mapping")
-            
-        except Exception as e:
-            logger.error(f"Failed to read source data: {e}")
-            raise HTTPException(status_code=400, detail=f"Failed to read source data: {e}")
+        # Check if file is large enough for streaming
+        use_streaming = should_use_streaming(source_file_path)
         
-        # Apply transformations
-        try:
-            logger.info(f"About to apply transformations. DataFrame shape: {df.shape}")
-            logger.info(f"Rules count: {len(rules)}")
-            logger.info(f"DataFrame columns: {list(df.columns)}")
+        if use_streaming:
+            # Process large file with streaming
+            try:
+                # Structured logging for streaming processing
+                streaming_info = {
+                    "file_size_mb": round(os.path.getsize(source_file_path) / (1024 * 1024), 2),
+                    "processing_mode": "streaming",
+                    "chunk_size": 10000
+                }
+                logger.info(f"Large file detected, using streaming: {streaming_info}")
+                
+                # Process in streaming mode
+                _process_large_file_streaming(
+                    source_file_path, source_schema, target_schema, 
+                    transformation_mapping, output_path, output_format, 
+                    run_id, logger
+                )
+                
+                # Structured logging for streaming completion
+                completion_info = {
+                    "processing_mode": "streaming",
+                    "status": "success"
+                }
+                logger.info(f"Streaming processing completed: {completion_info}")
+                
+            except Exception as e:
+                logger.error(f"Streaming processing failed: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                
+                # Create error file
+                error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
+                error_file = error_handler.create_simple_error_file(
+                    error_message=str(e),
+                    source_file=source_file_path,
+                    output_file=output_filename_with_timestamp,
+                    log_file=log_path.replace("\\", "/")
+                )
+                
+                error_response = create_error_response(
+                    run_id=run_id,
+                    error_file_path=error_file.replace("\\", "/"),
+                    source_file=source_file_path,
+                    output_file=output_filename_with_timestamp,
+                    log_file=log_path.replace("\\", "/"),
+                    error_message=str(e)
+                )
+                
+                return JSONResponse(status_code=400, content=error_response)
+        else:
+            # Process small file normally
+            try:
+                df = read_data_file_with_schema(source_file_path, source_schema)
+                
+                # Structured logging for data loading
+                data_info = {
+                    "rows_loaded": df.shape[0],
+                    "columns_loaded": df.shape[1],
+                    "available_columns": list(df.columns),
+                    "dataframe_schema": str(df.schema),
+                    "original_format": source_schema.get('fileType', 'unknown'),
+                    "processing_mode": "standard"
+                }
+                logger.info(f"Data loaded successfully: {data_info}")
+                
+            except Exception as e:
+                logger.error(f"Failed to read source data: {e}")
+                raise HTTPException(status_code=400, detail=f"Failed to read source data: {e}")
             
-            error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
-            transformed_df = apply_transformations_from_rules(df, rules, error_handler)
-            logger.info(f"Transformations applied: {transformed_df.shape[0]} rows, {transformed_df.shape[1]} columns")
-        except Exception as e:
-            logger.error(f"Transformation failed: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            # Apply transformations
+            try:
+                error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
+                transformed_df = apply_transformations_from_rules(df, rules, error_handler)
+                
+                # Structured logging for transformation results
+                transformation_info = {
+                    "input_rows": df.shape[0],
+                    "input_columns": df.shape[1],
+                    "output_rows": transformed_df.shape[0],
+                    "output_columns": transformed_df.shape[1],
+                    "rules_applied": len(rules)
+                }
+                logger.info(f"Transformations completed: {transformation_info}")
+            except Exception as e:
+                logger.error(f"Transformation failed: {e}")
+                import traceback
+                logger.error(f"Traceback: {traceback.format_exc()}")
+                
+                # Create error file
+                error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
+                error_file = error_handler.create_simple_error_file(
+                    error_message=str(e),
+                    source_file=source_file_path,
+                    output_file=output_filename_with_timestamp,
+                    log_file=log_path.replace("\\", "/")
+                )
+                
+                error_response = create_error_response(
+                    run_id=run_id,
+                    error_file_path=error_file.replace("\\", "/"),
+                    source_file=source_file_path,
+                    output_file=output_filename_with_timestamp,
+                    log_file=log_path.replace("\\", "/"),
+                    error_message=str(e)
+                )
+                
+                return JSONResponse(status_code=400, content=error_response)
             
-            # Create error file
-            error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
-            error_file = error_handler.create_simple_error_file(
-                error_message=str(e),
-                source_file=source_file_path,
-                output_file=output_filename_with_timestamp,
-                log_file=log_path.replace("\\", "/")
-            )
-            
-            error_response = create_error_response(
-                run_id=run_id,
-                error_file_path=error_file.replace("\\", "/"),
-                source_file=source_file_path,
-                output_file=output_filename_with_timestamp,
-                log_file=log_path.replace("\\", "/"),
-                error_message=str(e)
-            )
-            
-            return JSONResponse(status_code=400, content=error_response)
+            # Write output
+            try:
+                # Use target schema for writing
+                mapping_config = {
+                    "targetSchema": target_schema,
+                    "rules": rules
+                }
+                write_output_with_schema(transformed_df, output_path, output_format, mapping_config, logger=logger)
+                
+                # Structured logging for output writing
+                output_info = {
+                    "output_path": output_path,
+                    "output_format": output_format,
+                    "rows_written": transformed_df.shape[0],
+                    "columns_written": transformed_df.shape[1]
+                }
+                logger.info(f"Output written successfully: {output_info}")
+            except Exception as e:
+                logger.error(f"Failed to write output: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to write output: {e}")
         
-        # Write output
-        try:
-            # Use target schema for writing
-            mapping_config = {
-                "targetSchema": target_schema,
-                "rules": rules
-            }
-            write_output_with_schema(transformed_df, output_path, output_format, mapping_config, logger=logger)
-            logger.info(f"Output written successfully to: {output_path}")
-        except Exception as e:
-            logger.error(f"Failed to write output: {e}")
-            raise HTTPException(status_code=500, detail=f"Failed to write output: {e}")
-        
-        # Calculate processing time
+        # Calculate processing time and log completion
         processing_time = time.time() - start_time
-        logger.info(f"Unified ETL run completed successfully in {processing_time:.2f} seconds")
+        
+        # Structured logging for completion
+        if use_streaming:
+            completion_info = {
+                "run_id": run_id,
+                "processing_time_seconds": round(processing_time, 2),
+                "status": "success",
+                "processing_mode": "streaming"
+            }
+        else:
+            completion_info = {
+                "run_id": run_id,
+                "processing_time_seconds": round(processing_time, 2),
+                "status": "success",
+                "rows_processed": transformed_df.shape[0],
+                "columns_output": transformed_df.shape[1],
+                "processing_mode": "standard"
+            }
+        logger.info(f"ETL run completed successfully: {completion_info}")
         
         # Create log file with unique filename
         with open(log_path, 'w') as f:
@@ -250,33 +328,141 @@ async def transform_data(request: UnifiedTransformRequest):
         log_file_absolute = os.path.abspath(log_path).replace("\\", "/")
         source_file_absolute = os.path.abspath(source_file_path).replace("\\", "/")
         
-        return JSONResponse(
-            status_code=200,
-            content={
-                "status": "success",
-                "run_id": run_id,
-                "source_file": source_file_path,
-                "source_file_absolute": source_file_absolute,
-                "output_file": output_filename_with_timestamp,
-                "output_file_absolute": output_file_absolute,
-                "output_format": output_format,
+        # Prepare response content based on processing mode
+        response_content = {
+            "status": "success",
+            "run_id": run_id,
+            "source_file": source_file_path,
+            "source_file_absolute": source_file_absolute,
+            "output_file": output_filename_with_timestamp,
+            "output_file_absolute": output_file_absolute,
+            "output_format": output_format,
+            "processing_time_seconds": round(processing_time, 2),
+            "log_file": log_filename,
+            "log_file_absolute": log_file_absolute,
+            "error_file": None,  # No errors occurred
+            "error_file_absolute": None,
+            "message": "Transformation completed successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Add mode-specific information
+        if use_streaming:
+            response_content.update({
+                "processing_mode": "streaming",
+                "message": "Large file transformation completed successfully using streaming mode"
+            })
+        else:
+            response_content.update({
                 "rows_processed": transformed_df.shape[0],
                 "columns_output": transformed_df.shape[1],
-                "processing_time_seconds": round(processing_time, 2),
-                "log_file": log_filename,
-                "log_file_absolute": log_file_absolute,
-                "error_file": None,  # No errors occurred
-                "error_file_absolute": None,
-                "message": "Transformation completed successfully",
-                "timestamp": datetime.now().isoformat()
-            }
-        )
+                "processing_mode": "standard"
+            })
+
+        return JSONResponse(status_code=200, content=response_content)
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+def _process_large_file_streaming(source_file_path: str, source_schema: Dict[str, Any], 
+                                 target_schema: Dict[str, Any], transformation_mapping: Dict[str, Any],
+                                 output_path: str, output_format: str, run_id: str, logger) -> None:
+    """
+    Process large files using streaming mode for memory efficiency.
+    
+    Args:
+        source_file_path: Path to source file
+        source_schema: Source schema definition
+        target_schema: Target schema definition
+        transformation_mapping: Transformation mapping
+        output_path: Output file path
+        output_format: Output format
+        run_id: Run ID for logging
+        logger: Logger instance
+    """
+    # Extract rules from transformation mapping
+    if "rules" in transformation_mapping:
+        rules = transformation_mapping["rules"]
+    elif "mappings" in transformation_mapping:
+        # Legacy format - convert to rules format
+        rules = []
+        for mapping in transformation_mapping["mappings"]:
+            rule = {
+                "id": mapping.get("id", f"rule_{len(rules)+1}"),
+                "trns": mapping.get("trns", ""),
+                "affected_source": mapping.get("affected_source", []),
+                "affected_target": mapping.get("affected_target", "")
+            }
+            rules.append(rule)
+    else:
+        raise ValueError("No 'rules' or 'mappings' found in transformation mapping")
+    
+    # Create mapping config for writer
+    mapping_config = {
+        "targetSchema": target_schema,
+        "rules": rules
+    }
+    
+    # Process file in streaming mode
+    chunk_size = 10000  # Process 10k rows at a time
+    total_rows_processed = 0
+    total_chunks_processed = 0
+    
+    try:
+        # Read file in chunks
+        df_chunks = read_data_file_with_schema_streaming(source_file_path, source_schema, chunk_size)
+        
+        # Transform each chunk
+        transformed_chunks = []
+        error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
+        
+        for chunk in df_chunks:
+            if chunk.is_empty():
+                continue
+                
+            try:
+                # Apply transformations to chunk
+                transformed_chunk = apply_transformations_from_rules(chunk, rules, error_handler)
+                transformed_chunks.append(transformed_chunk)
+                
+                total_rows_processed += chunk.shape[0]
+                total_chunks_processed += 1
+                
+                # Log progress every 10 chunks
+                if total_chunks_processed % 10 == 0:
+                    progress_info = {
+                        "chunks_processed": total_chunks_processed,
+                        "rows_processed": total_rows_processed,
+                        "current_chunk_size": chunk.shape[0]
+                    }
+                    logger.info(f"Streaming progress: {progress_info}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to transform chunk {total_chunks_processed + 1}: {e}")
+                raise e
+        
+        # Write output in streaming mode
+        def transformed_chunk_generator():
+            for chunk in transformed_chunks:
+                yield chunk
+        
+        write_output_streaming(transformed_chunk_generator(), output_path, output_format, mapping_config, logger)
+        
+        # Log final streaming results
+        final_info = {
+            "total_chunks_processed": total_chunks_processed,
+            "total_rows_processed": total_rows_processed,
+            "output_path": output_path,
+            "output_format": output_format
+        }
+        logger.info(f"Streaming processing completed: {final_info}")
+        
+    except Exception as e:
+        logger.error(f"Streaming processing failed: {e}")
+        raise e
 
 if __name__ == "__main__":
     import uvicorn

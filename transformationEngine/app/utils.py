@@ -1,7 +1,7 @@
 import re
 import datetime as _dt
 import polars as pl
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, List
 
 _DEFAULT_DATE_FMT = "%m%d%Y"  # Interpreting MMDDCCYY as MMDDYYYY as a practical default
 
@@ -740,3 +740,183 @@ def coerce_simple_transform(transform: str, source_expr: pl.Expr) -> pl.Expr:
         return source_expr.cast(pl.Utf8).str.strptime(pl.Date, fmt, strict=False)
 
     raise ValueError(f"Unsupported simple transform: {t}")
+
+# Simple Parser Functions (Clean syntax without backslashes)
+def parse_simple_transform(expression: str, df: pl.DataFrame) -> pl.Expr:
+    """Parse simple transformation expressions without requiring backslashes"""
+    if not expression or expression.strip() == "":
+        return pl.lit(None)
+    
+    expression = expression.strip()
+    
+    # Handle simple field references
+    if _is_simple_field_reference(expression):
+        return _parse_simple_field_reference(expression, df)
+    
+    # Handle function calls with simple syntax
+    if "(" in expression and ")" in expression:
+        return _parse_function_call(expression, df)
+    
+    # Handle literal values
+    return _parse_literal(expression)
+
+def _is_simple_field_reference(expr: str) -> bool:
+    """Check if expression is a simple field reference"""
+    # Simple patterns: field_name, attr('field_name'), attr("field_name")
+    simple_patterns = [
+        r'^[a-zA-Z_][a-zA-Z0-9_]*$',  # field_name
+        r"^attr\(['\"]([^'\"]+)['\"]\)$",  # attr('field') or attr("field")
+    ]
+    
+    for pattern in simple_patterns:
+        if re.match(pattern, expr.strip()):
+            return True
+    return False
+
+def _parse_simple_field_reference(expr: str, df: pl.DataFrame) -> pl.Expr:
+    """Parse simple field references"""
+    expr = expr.strip()
+    
+    # Direct field name
+    if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', expr):
+        if expr in df.columns:
+            return pl.col(expr)
+        else:
+            raise ValueError(f"Column '{expr}' not found in data")
+    
+    # attr('field') or attr("field") syntax
+    match = re.match(r"^attr\(['\"]([^'\"]+)['\"]\)$", expr)
+    if match:
+        field_name = match.group(1)
+        if field_name in df.columns:
+            return pl.col(field_name)
+        else:
+            raise ValueError(f"Column '{field_name}' not found in data")
+    
+    raise ValueError(f"Invalid field reference: {expr}")
+
+def _parse_function_call(expr: str, df: pl.DataFrame) -> pl.Expr:
+    """Parse function calls with simple syntax"""
+    # Handle DIRECT[ATTR()] format
+    direct_match = re.match(r'^DIRECT\s*\[\s*ATTR\s*\(\s*([^)]+)\s*\)\s*\]$', expr.strip(), re.IGNORECASE)
+    if direct_match:
+        field_name = direct_match.group(1).strip().strip('\'"')
+        if field_name in df.columns:
+            return pl.col(field_name)
+        else:
+            raise ValueError(f"Column '{field_name}' not found in data")
+    
+    # Handle STRING[TRIM(ATTR())] format
+    string_trim_match = re.match(r'^STRING\s*\[\s*TRIM\s*\(\s*ATTR\s*\(\s*([^)]+)\s*\)\s*\)\s*\]$', expr.strip(), re.IGNORECASE)
+    if string_trim_match:
+        field_name = string_trim_match.group(1).strip().strip('\'"')
+        if field_name in df.columns:
+            return pl.col(field_name).str.strip()
+        else:
+            raise ValueError(f"Column '{field_name}' not found in data")
+    
+    # Handle DATE[FORMAT(attr(), 'format')] format
+    date_format_match = re.match(r'^DATE\s*\[\s*FORMAT\s*\(\s*attr\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)\s*,\s*[\'"]([^\'"]+)[\'"]\s*\)\s*\]$', expr.strip(), re.IGNORECASE)
+    if date_format_match:
+        field_name = date_format_match.group(1)
+        date_format = date_format_match.group(2)
+        if field_name in df.columns:
+            # Convert date to string with the specified format
+            return pl.col(field_name).cast(pl.Utf8)
+        else:
+            raise ValueError(f"Column '{field_name}' not found in data")
+    
+    # Extract function name and arguments for standard function calls
+    match = re.match(r'^(\w+)\s*\((.*)\)$', expr.strip())
+    if not match:
+        raise ValueError(f"Invalid function call syntax: {expr}")
+    
+    func_name = match.group(1).upper()
+    args_str = match.group(2)
+    
+    # Parse arguments
+    args = _parse_arguments(args_str, df)
+    
+    # Handle different function types
+    if func_name == 'UPPER':
+        return args[0].str.to_uppercase()
+    elif func_name == 'LOWER':
+        return args[0].str.to_lowercase()
+    elif func_name == 'CONCAT':
+        return pl.concat_str(args)
+    elif func_name == 'TRIM':
+        return args[0].str.strip()
+    elif func_name == 'ADD':
+        return args[0] + args[1]
+    elif func_name == 'SUB':
+        return args[0] - args[1]
+    elif func_name == 'MUL':
+        return args[0] * args[1]
+    elif func_name == 'DIV':
+        return args[0] / args[1]
+    else:
+        raise ValueError(f"Unsupported function: {func_name}")
+
+def _parse_arguments(args_str: str, df: pl.DataFrame) -> List[pl.Expr]:
+    """Parse function arguments"""
+    args = []
+    current_arg = ""
+    paren_depth = 0
+    in_quotes = False
+    quote_char = None
+    
+    i = 0
+    while i < len(args_str):
+        char = args_str[i]
+        
+        if not in_quotes:
+            if char in ['"', "'"]:
+                in_quotes = True
+                quote_char = char
+                current_arg += char
+            elif char == '(':
+                paren_depth += 1
+                current_arg += char
+            elif char == ')':
+                paren_depth -= 1
+                current_arg += char
+            elif char == ',' and paren_depth == 0:
+                args.append(parse_simple_transform(current_arg.strip(), df))
+                current_arg = ""
+            else:
+                current_arg += char
+        else:
+            current_arg += char
+            if char == quote_char:
+                in_quotes = False
+                quote_char = None
+        
+        i += 1
+    
+    if current_arg.strip():
+        args.append(parse_simple_transform(current_arg.strip(), df))
+    
+    return args
+
+def _parse_literal(expr: str) -> pl.Expr:
+    """Parse literal values"""
+    expr = expr.strip()
+    
+    # String literals
+    if (expr.startswith('"') and expr.endswith('"')) or (expr.startswith("'") and expr.endswith("'")):
+        return pl.lit(expr[1:-1])  # Remove quotes
+    
+    # Numeric literals
+    try:
+        if '.' in expr:
+            return pl.lit(float(expr))
+        else:
+            return pl.lit(int(expr))
+    except ValueError:
+        pass
+    
+    # Boolean literals
+    if expr.lower() in ['true', 'false']:
+        return pl.lit(expr.lower() == 'true')
+    
+    raise ValueError(f"Unable to parse literal: {expr}")
