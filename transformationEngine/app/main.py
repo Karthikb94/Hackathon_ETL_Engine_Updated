@@ -2,6 +2,7 @@ import os
 import json
 import time
 import polars as pl
+from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -30,10 +31,10 @@ app = FastAPI(
 )
 
 # Updated paths for multi-engine architecture
-BASE_OUTPUT_DIR = os.environ.get("ETL_OUTPUT_DIR", "../storage/transformed")
-BASE_LOGS_DIR = os.environ.get("ETL_LOGS_DIR", "../storage/logs")
-BASE_INPUT_DIR = os.environ.get("ETL_INPUT_DIR", "../storage/input")
-BASE_ERROR_DIR = os.environ.get("ETL_ERROR_DIR", "../storage/transformation_error")
+BASE_OUTPUT_DIR = os.environ.get("ETL_OUTPUT_DIR", "storage/transformed")
+BASE_LOGS_DIR = os.environ.get("ETL_LOGS_DIR", "storage/logs")
+BASE_INPUT_DIR = os.environ.get("ETL_INPUT_DIR", "storage/input")
+BASE_ERROR_DIR = os.environ.get("ETL_ERROR_DIR", "storage/transformation_error")
 
 @app.on_event("startup")
 async def startup_event():
@@ -202,15 +203,15 @@ async def transform_data(request: UnifiedTransformRequest):
                 error_message=str(e),
                 source_file=source_file_path,
                 output_file=output_filename_with_timestamp,
-                log_file=f"../storage/logs/{log_filename}"
+                log_file=log_path.replace("\\", "/")
             )
             
             error_response = create_error_response(
                 run_id=run_id,
-                error_file_path=error_file,
+                error_file_path=error_file.replace("\\", "/"),
                 source_file=source_file_path,
                 output_file=output_filename_with_timestamp,
-                log_file=f"../storage/logs/{log_filename}",
+                log_file=log_path.replace("\\", "/"),
                 error_message=str(e)
             )
             
@@ -244,20 +245,30 @@ async def transform_data(request: UnifiedTransformRequest):
             f.write(f"Processing Time: {processing_time:.2f} seconds\n")
             f.write(f"Status: Success\n")
         
+        # Get absolute paths for all files and convert to forward slashes for cleaner JSON
+        output_file_absolute = os.path.abspath(f"{output_path}.{output_format}").replace("\\", "/")
+        log_file_absolute = os.path.abspath(log_path).replace("\\", "/")
+        source_file_absolute = os.path.abspath(source_file_path).replace("\\", "/")
+        
         return JSONResponse(
             status_code=200,
             content={
                 "status": "success",
                 "run_id": run_id,
                 "source_file": source_file_path,
+                "source_file_absolute": source_file_absolute,
                 "output_file": output_filename_with_timestamp,
+                "output_file_absolute": output_file_absolute,
                 "output_format": output_format,
                 "rows_processed": transformed_df.shape[0],
                 "columns_output": transformed_df.shape[1],
                 "processing_time_seconds": round(processing_time, 2),
-                "log_file": f"../storage/logs/{log_filename}",
+                "log_file": log_filename,
+                "log_file_absolute": log_file_absolute,
                 "error_file": None,  # No errors occurred
-                "message": "Transformation completed successfully"
+                "error_file_absolute": None,
+                "message": "Transformation completed successfully",
+                "timestamp": datetime.now().isoformat()
             }
         )
         

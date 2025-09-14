@@ -1,94 +1,129 @@
-# ETL Engine
+# ETL Engine - Data Transformation Platform
 
-A powerful and flexible ETL (Extract, Transform, Load) engine built with FastAPI and Polars for high-performance data processing.
+## 🚀 Quick Start
 
-## Quick Start
+This ETL Engine provides powerful data transformation capabilities, converting Parquet files between various formats using customizable transformation logic.
 
-### Start the ETL Engine
+### Prerequisites
+- Python 3.11+
+- Required dependencies (see `transformationEngine/requirements.txt`)
+
+### Installation & Setup
+1. **Install dependencies:**
+   ```bash
+   cd transformationEngine
+   pip install -r requirements.txt
+   ```
+
+2. **Start the ETL Engine:**
+   ```bash
+   python run.py
+   ```
+
+3. **Access the API:**
+   - Server: `http://localhost:8001`
+   - API Docs: `http://localhost:8001/docs`
+   - Health Check: `http://localhost:8001/health`
+
+## 📚 Documentation
+
+**👉 [Complete API Documentation](ETL_ENGINE_API_DOCUMENTATION.md)**
+
+The comprehensive documentation includes:
+- Step-by-step integration guide
+- Complete API reference
+- Request/response formats
+- Transformation logic examples
+- Frontend integration examples (JavaScript/Python)
+- Troubleshooting guide
+
+## 🏗️ Project Structure
+
+```
+📁 Hackathon_ETL_Engine_Updated/
+├── transformationEngine/          # ETL Engine source code
+│   ├── app/                      # Core application modules
+│   │   ├── main.py              # FastAPI application
+│   │   ├── reader.py            # Data reading logic
+│   │   ├── transformer.py       # Transformation engine
+│   │   ├── writer.py            # Output generation
+│   │   └── ...
+│   └── requirements.txt          # Python dependencies
+├── storage/                      # Shared storage for all engines
+│   ├── input/                   # Input Parquet files
+│   ├── transformed/             # Output files
+│   ├── logs/                    # Operation logs
+│   └── transformation_error/    # Error files
+├── config/                      # Configuration files
+├── parsingEngine/               # Other engines (future)
+├── run.py                       # Server startup script
+└── ETL_ENGINE_API_DOCUMENTATION.md  # Complete documentation
+```
+
+## 🎯 Key Features
+
+- **Multi-Format Support:** CSV, JSON, XML, Fixed-Width, Excel, Parquet
+- **Flexible Transformations:** Mathematical, string, conditional logic
+- **Positional Data Handling:** Support for fixed-width and positional data
+- **High Performance:** Built with Polars for fast data processing
+- **Multi-Engine Architecture:** Shared storage for multiple engines
+- **Comprehensive Logging:** Detailed operation logs and error tracking
+
+## 🔧 Quick Example
+
 ```bash
+# 1. Start the server
 python run.py
+
+# 2. Make a transformation request
+curl -X POST "http://localhost:8001/transform" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "source_file_path": "storage/input/employees.parquet",
+    "source_schema": {
+      "role": "source",
+      "fileType": "parquet",
+      "attributes": {
+        "id": {"dataType": "integer", "column_no": 1, "start_position": 0, "width": 8},
+        "name": {"dataType": "string", "column_no": 2, "start_position": 8, "width": 30}
+      }
+    },
+    "target_schema": {"role": "target", "fileType": "json", "attributes": {}},
+    "transformation_mapping": {
+      "mappings": [
+        {"id": "pass_id", "affected_target": "employee_id", "affected_source": ["id"], "trns": ""},
+        {"id": "pass_name", "affected_target": "employee_name", "affected_source": ["name"], "trns": ""}
+      ]
+    }
+  }'
 ```
 
-## Features
+## 📖 For Developers
 
-- **Fast Data Processing**: Built on Polars for high-performance data operations
-- **Multiple Input Formats**: Supports CSV, Parquet, JSON, XML, and fixed-width files
-- **Flexible Transformations**: Advanced transformation engine with support for complex expressions
-- **REST API**: Full REST API with automatic documentation
-- **Error Handling**: Comprehensive error tracking and detailed error reports
-- **Schema Support**: Full schema validation and type casting
+### Frontend Integration
+- **JavaScript:** See examples in [API Documentation](ETL_ENGINE_API_DOCUMENTATION.md)
+- **Python:** Complete integration examples provided
+- **REST API:** Standard HTTP/JSON interface
 
-## API Endpoints
+### Backend Development
+- **FastAPI:** Modern Python web framework
+- **Polars:** High-performance DataFrame library
+- **Modular Design:** Easy to extend and customize
 
-Once running, the ETL Engine provides:
+## 🆘 Support
 
-- **Health Check**: `GET /health` - Service health status
-- **Transform Data**: `POST /transform` - Main ETL transformation endpoint
-- **API Documentation**: `http://localhost:8001/docs` - Interactive API docs
-- **Alternative Docs**: `http://localhost:8001/redoc` - Alternative API documentation
+1. **Check the logs:** `storage/logs/`
+2. **Review errors:** `storage/transformation_error/`
+3. **Interactive docs:** `http://localhost:8001/docs`
+4. **Complete guide:** [ETL_ENGINE_API_DOCUMENTATION.md](ETL_ENGINE_API_DOCUMENTATION.md)
 
-## Requirements
+## 🎉 Ready to Transform Data?
 
-- Python 3.8+
-- Dependencies are automatically installed when using `run.py`
+1. Read the [Complete API Documentation](ETL_ENGINE_API_DOCUMENTATION.md)
+2. Start the server: `python run.py`
+3. Place your Parquet files in `storage/input/`
+4. Make your first transformation!
 
-## Project Structure
+---
 
-```
-├── run.py                    # Main runner script
-├── transformationEngine/     # Core ETL engine
-│   ├── app/
-│   │   ├── main.py          # FastAPI application
-│   │   ├── reader.py        # Data reading modules
-│   │   ├── writer.py        # Data writing modules
-│   │   ├── transformer.py   # Transformation engine
-│   │   ├── utils.py         # Utility functions
-│   │   ├── logger.py        # Logging configuration
-│   │   ├── error_handler.py # Error handling
-│   │   └── exceptions.py    # Custom exceptions
-│   └── requirements.txt     # Python dependencies
-├── storage/                 # Data storage directories
-│   ├── input/              # Input data files
-│   ├── transformed/        # Output data files
-│   ├── logs/               # Log files
-│   └── transformation_error/ # Error reports
-└── config/                 # Configuration files
-```
-
-## Usage
-
-1. Place your input data files in `storage/input/`
-2. Run the ETL Engine: `python run.py`
-3. The script will automatically:
-   - Check Python version and dependencies
-   - Install missing packages if needed
-   - Verify directory structure
-   - Start the server
-4. Access the API documentation at `http://localhost:8001/docs`
-5. Send transformation requests to the `/transform` endpoint
-6. Find transformed data in `storage/transformed/`
-7. Check logs in `storage/logs/` for processing details
-
-## Configuration
-
-The ETL Engine uses JSON configuration files for:
-- Source and target schemas
-- Transformation mappings
-- Field definitions and data types
-
-Example configurations are provided in the `config/` directory.
-
-## Error Handling
-
-The engine provides comprehensive error handling:
-- Detailed error reports in `storage/transformation_error/`
-- Processing logs in `storage/logs/`
-- Graceful handling of data validation errors
-- Schema validation and type checking
-
-## Performance
-
-- Built on Polars for high-performance data processing
-- Supports large datasets with efficient memory usage
-- Parallel processing capabilities
-- Optimized for both speed and memory efficiency
+**Happy Data Transforming! 🚀**

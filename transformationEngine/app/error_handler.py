@@ -97,7 +97,7 @@ class TransformationErrorHandler:
             with open(self.error_file_path, 'w', encoding='utf-8') as f:
                 json.dump(error_file_content, f, indent=2, ensure_ascii=False, default=str)
             
-            return self.error_file_path
+            return self.error_file_path.replace("\\", "/")
         except Exception as e:
             # If we can't write the error file, at least log it
             print(f"Failed to create error file: {e}")
@@ -147,7 +147,7 @@ class TransformationErrorHandler:
             with open(self.error_file_path, 'w', encoding='utf-8') as f:
                 json.dump(error_file_content, f, indent=2, ensure_ascii=False, default=str)
             
-            return self.error_file_path
+            return self.error_file_path.replace("\\", "/")
         except Exception as e:
             print(f"Failed to create simple error file: {e}")
             return None
@@ -183,13 +183,24 @@ def create_error_response(run_id: str,
                          error_message: str) -> Dict[str, Any]:
     """Create a standardized error response."""
     
+    # Get absolute paths and convert to forward slashes for cleaner JSON
+    source_file_absolute = os.path.abspath(source_file).replace("\\", "/") if source_file else None
+    output_file_absolute = os.path.abspath(output_file).replace("\\", "/") if output_file else None
+    log_file_absolute = os.path.abspath(log_file).replace("\\", "/") if log_file else None
+    error_file_absolute = os.path.abspath(error_file_path).replace("\\", "/") if error_file_path else None
+    
     return {
         "status": "error",
         "run_id": run_id,
         "source_file": source_file,
+        "source_file_absolute": source_file_absolute,
         "output_file": output_file,
+        "output_file_absolute": output_file_absolute,
         "log_file": log_file,
+        "log_file_absolute": log_file_absolute,
         "error_file": error_file_path,
+        "error_file_absolute": error_file_absolute,
         "error_message": error_message,
-        "message": "Transformation failed. Check error file for details."
+        "message": "Transformation failed. Check error file for details.",
+        "timestamp": datetime.now().isoformat()
     }

@@ -241,6 +241,10 @@ def write_output(df: pl.DataFrame, base_path: str, fmt: str, mappings: List[Dict
         write_csv(df, out_path)
         return out_path
     elif fmt == "json":
+        out_path = f"{base_path}.json"
+        write_json(df, out_path)
+        return out_path
+    elif fmt == "jsonl":
         out_path = f"{base_path}.jsonl"
         write_ndjson(df, out_path)
         return out_path
@@ -279,6 +283,10 @@ def write_output_with_schema(df: pl.DataFrame, base_path: str, fmt: str, mapping
         write_csv(df, out_path)
         return out_path
     elif fmt == "json":
+        out_path = f"{base_path}.json"
+        write_json(df, out_path)
+        return out_path
+    elif fmt == "jsonl":
         out_path = f"{base_path}.jsonl"
         write_ndjson(df, out_path)
         return out_path
