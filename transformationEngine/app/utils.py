@@ -513,7 +513,18 @@ def parse_transform_expression(expr: str):
     if op == "DIRECT":
         # DIRECT[ATTR('column')] - directly use the column value
         if method == "ATTR":
-            return parse_value(args[0])
+            # Accept both ATTR(column) and ATTR('column') forms
+            arg0 = args[0].strip()
+            # Try normal attr parsing first
+            col_expr = parse_attr(arg0)
+            if col_expr is not None:
+                return col_expr
+            # If quoted string like 'col' or "col", strip quotes and treat as column name
+            if (arg0.startswith("'") and arg0.endswith("'")) or (arg0.startswith('"') and arg0.endswith('"')):
+                inner = arg0[1:-1].strip()
+                return pl.col(inner)
+            # Fallback to treating the argument as a column name
+            return pl.col(arg0)
         raise ValueError(f"Unsupported DIRECT method: {method}")
 
     if op == "DATE":

@@ -357,5 +357,128 @@
         }
       ]
     }
+  },
+  "complete_example_request_parquet": {
+    "source_file_path": "storage/input/employees.parquet",
+    "source_schema": {
+      "role": "source",
+      "fileType": "csv",
+      "schemaId": "schm-csv-emp-001",
+      "schemaName": "employee_csv_v1",
+      "attributes": {
+        "first_name": {
+          "name": "first_name",
+          "dataType": "string",
+          "column_no": 1
+        },
+        "last_name": {
+          "name": "last_name",
+          "dataType": "string",
+          "column_no": 2
+        },
+        "age": {
+          "name": "age",
+          "dataType": "integer",
+          "column_no": 3
+        },
+        "base_salary": {
+          "name": "base_salary",
+          "dataType": "float",
+          "column_no": 4
+        },
+        "bonus": {
+          "name": "bonus",
+          "dataType": "float",
+          "column_no": 5
+        },
+        "status": {
+          "name": "status",
+          "dataType": "string",
+          "column_no": 6
+        },
+        "verified": {
+          "name": "verified",
+          "dataType": "boolean",
+          "column_no": 7
+        },
+        "performance": {
+          "name": "performance",
+          "dataType": "float",
+          "column_no": 8
+        },
+        "tenure": {
+          "name": "tenure",
+          "dataType": "integer",
+          "column_no": 9
+        }
+      }
+    },
+    "target_schema": {
+      "role": "target",
+      "fileType": "parquet",
+      "schemaId": "schm-parquet-emp-001",
+      "schemaName": "employee_parquet_v1",
+      "attributes": {
+        "employee_summary": {
+          "name": "employee_summary",
+          "dataType": "string"
+        },
+        "age_category": {
+          "name": "age_category",
+          "dataType": "string"
+        },
+        "is_eligible": {
+          "name": "is_eligible",
+          "dataType": "boolean"
+        },
+        "final_salary": {
+          "name": "final_salary",
+          "dataType": "float"
+        },
+        "is_high_earner": {
+          "name": "is_high_earner",
+          "dataType": "boolean"
+        }
+      }
+    },
+    "transformation_mapping": {
+      "mappingId": "emp-transform-parquet-001",
+      "mappingName": "employee_comprehensive_transformation_to_parquet",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "sourceSchemaId": "schm-csv-emp-001",
+      "targetSchemaId": "schm-parquet-emp-001",
+      "rules": [
+        {
+          "id": "rule_1",
+          "trns": "STRING[CONCAT('Employee: ', attr('first_name'), ' ', attr('last_name'), ' (', LOGICAL[IF(attr('age') >= 65, 'Senior', 'Regular'), ')')]",
+          "affected_source": ["first_name", "last_name", "age"],
+          "affected_target": "employee_summary"
+        },
+        {
+          "id": "rule_2",
+          "trns": "LOGICAL[IF(attr('age') >= 65, 'Senior', LOGICAL[IF(attr('age') >= 18, 'Adult', 'Minor')])]",
+          "affected_source": ["age"],
+          "affected_target": "age_category"
+        },
+        {
+          "id": "rule_3",
+          "trns": "LOGICAL[AND(attr('age') >= 18, attr('status') == 'Active', attr('verified') == true)]",
+          "affected_source": ["age", "status", "verified"],
+          "affected_target": "is_eligible"
+        },
+        {
+          "id": "rule_4",
+          "trns": "LOGICAL[IF(LOGICAL[AND(attr('performance') > 8, attr('tenure') > 2)], MATH[ADD(attr('base_salary'), MATH[MUL(attr('base_salary'), 0.2)])], attr('base_salary'))]",
+          "affected_source": ["performance", "tenure", "base_salary"],
+          "affected_target": "final_salary"
+        },
+        {
+          "id": "rule_5",
+          "trns": "BOOLEAN[GREATER_THAN(attr('final_salary'), 100000)]",
+          "affected_source": ["final_salary"],
+          "affected_target": "is_high_earner"
+        }
+      ]
+    }
   }
 }

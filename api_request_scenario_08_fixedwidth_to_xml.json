@@ -1,0 +1,198 @@
+{
+  "source_file_path": "storage/input/fixedwidth_source.parquet",
+  "source_schema": {
+    "role": "source",
+    "fileType": "fixedwidth",
+    "schemaId": "fw-001",
+    "schemaName": "fixedwidth_source_schema",
+    "attributes": {
+      "employee_id": {
+        "name": "employee_id",
+        "dataType": "integer",
+        "column_no": 1
+      },
+      "first_name": {
+        "name": "first_name",
+        "dataType": "string",
+        "column_no": 2
+      },
+      "last_name": {
+        "name": "last_name",
+        "dataType": "string",
+        "column_no": 3
+      },
+      "email": {
+        "name": "email",
+        "dataType": "string",
+        "column_no": 4
+      },
+      "department": {
+        "name": "department",
+        "dataType": "string",
+        "column_no": 5
+      },
+      "salary": {
+        "name": "salary",
+        "dataType": "float",
+        "column_no": 6
+      },
+      "hire_date": {
+        "name": "hire_date",
+        "dataType": "date",
+        "column_no": 7
+      },
+      "is_active": {
+        "name": "is_active",
+        "dataType": "boolean",
+        "column_no": 8
+      },
+      "performance_rating": {
+        "name": "performance_rating",
+        "dataType": "float",
+        "column_no": 9
+      },
+      "years_experience": {
+        "name": "years_experience",
+        "dataType": "integer",
+        "column_no": 10
+      }
+    }
+  },
+  "target_schema": {
+    "role": "target",
+    "fileType": "xml",
+    "schemaId": "xml-target-001",
+    "schemaName": "xml_target_schema",
+    "attributes": {
+      "employee_id": {
+        "name": "employee_id",
+        "dataType": "integer"
+      },
+      "first_name": {
+        "name": "first_name",
+        "dataType": "string"
+      },
+      "last_name": {
+        "name": "last_name",
+        "dataType": "string"
+      },
+      "email": {
+        "name": "email",
+        "dataType": "string"
+      },
+      "department": {
+        "name": "department",
+        "dataType": "string"
+      },
+      "salary": {
+        "name": "salary",
+        "dataType": "float"
+      },
+      "hire_date": {
+        "name": "hire_date",
+        "dataType": "date"
+      },
+      "is_active": {
+        "name": "is_active",
+        "dataType": "boolean"
+      },
+      "performance_rating": {
+        "name": "performance_rating",
+        "dataType": "float"
+      },
+      "years_experience": {
+        "name": "years_experience",
+        "dataType": "integer"
+      }
+    }
+  },
+  "transformation_mapping": {
+    "mappingId": "mapping-fixedwidth_to_xml-001",
+    "mappingName": "fixedwidth_to_xml_transformation",
+    "createdAt": "2025-09-16T22:25:33.343120",
+    "sourceSchemaId": "fw-001",
+    "targetSchemaId": "xml-target-001",
+    "rules": [
+      {
+        "id": "rule_1",
+        "trns": "DIRECT[ATTR('employee_id')]",
+        "affected_source": [
+          "employee_id"
+        ],
+        "affected_target": "employee_id"
+      },
+      {
+        "id": "rule_2",
+        "trns": "STRING[UPPER(attr('first_name'))]",
+        "affected_source": [
+          "first_name"
+        ],
+        "affected_target": "first_name"
+      },
+      {
+        "id": "rule_3",
+        "trns": "STRING[UPPER(attr('last_name'))]",
+        "affected_source": [
+          "last_name"
+        ],
+        "affected_target": "last_name"
+      },
+      {
+        "id": "rule_4",
+        "trns": "STRING[LOWER(attr('email'))]",
+        "affected_source": [
+          "email"
+        ],
+        "affected_target": "email"
+      },
+      {
+        "id": "rule_5",
+        "trns": "DIRECT[ATTR('department')]",
+        "affected_source": [
+          "department"
+        ],
+        "affected_target": "department"
+      },
+      {
+        "id": "rule_6",
+        "trns": "MATH[ROUND(attr('salary'), 2)]",
+        "affected_source": [
+          "salary"
+        ],
+        "affected_target": "salary"
+      },
+      {
+        "id": "rule_7",
+        "trns": "DATE[FORMAT(attr('hire_date'), 'YYYY-MM-DD')]",
+        "affected_source": [
+          "hire_date"
+        ],
+        "affected_target": "hire_date"
+      },
+      {
+        "id": "rule_8",
+        "trns": "DIRECT[ATTR('is_active')]",
+        "affected_source": [
+          "is_active"
+        ],
+        "affected_target": "is_active"
+      },
+      {
+        "id": "rule_9",
+        "trns": "MATH[ROUND(attr('performance_rating'), 1)]",
+        "affected_source": [
+          "performance_rating"
+        ],
+        "affected_target": "performance_rating"
+      },
+      {
+        "id": "rule_10",
+        "trns": "DIRECT[ATTR('years_experience')]",
+        "affected_source": [
+          "years_experience"
+        ],
+        "affected_target": "years_experience"
+      }
+    ]
+  }
+}
