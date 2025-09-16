@@ -1,0 +1,361 @@
+{
+  "examples": {
+    "basic_string_operations": {
+      "description": "Basic string transformations",
+      "rules": [
+        {
+          "id": "upper_name",
+          "trns": "STRING[UPPER(attr('first_name'))]",
+          "affected_source": ["first_name"],
+          "affected_target": "first_name_upper"
+        },
+        {
+          "id": "full_name",
+          "trns": "STRING[CONCAT(attr('first_name'), ' ', attr('last_name'))]",
+          "affected_source": ["first_name", "last_name"],
+          "affected_target": "full_name"
+        },
+        {
+          "id": "trim_email",
+          "trns": "STRING[TRIM(attr('email'))]",
+          "affected_source": ["email"],
+          "affected_target": "email_clean"
+        }
+      ]
+    },
+    
+    "math_operations": {
+      "description": "Mathematical calculations",
+      "rules": [
+        {
+          "id": "total_salary",
+          "trns": "MATH[ADD(attr('base_salary'), attr('bonus'))]",
+          "affected_source": ["base_salary", "bonus"],
+          "affected_target": "total_salary"
+        },
+        {
+          "id": "tax_calculation",
+          "trns": "MATH[MUL(attr('total_salary'), attr('tax_rate'))]",
+          "affected_source": ["total_salary", "tax_rate"],
+          "affected_target": "tax_amount"
+        },
+        {
+          "id": "net_salary",
+          "trns": "MATH[SUB(attr('total_salary'), attr('tax_amount'))]",
+          "affected_source": ["total_salary", "tax_amount"],
+          "affected_target": "net_salary"
+        },
+        {
+          "id": "rounded_salary",
+          "trns": "MATH[ROUND(attr('net_salary'), 2)]",
+          "affected_source": ["net_salary"],
+          "affected_target": "final_salary"
+        }
+      ]
+    },
+    
+    "logical_operations": {
+      "description": "Conditional logic and boolean operations",
+      "rules": [
+        {
+          "id": "age_category",
+          "trns": "LOGICAL[IF(attr('age') >= 65, 'Senior', LOGICAL[IF(attr('age') >= 18, 'Adult', 'Minor')])]",
+          "affected_source": ["age"],
+          "affected_target": "age_category"
+        },
+        {
+          "id": "is_eligible",
+          "trns": "LOGICAL[AND(attr('age') >= 18, attr('status') == 'Active', attr('verified') == true)]",
+          "affected_source": ["age", "status", "verified"],
+          "affected_target": "is_eligible"
+        },
+        {
+          "id": "priority_level",
+          "trns": "LOGICAL[IF(LOGICAL[OR(attr('is_vip') == true, attr('spending') > 10000)], 'High', 'Normal')]",
+          "affected_source": ["is_vip", "spending"],
+          "affected_target": "priority_level"
+        }
+      ]
+    },
+    
+    "boolean_comparisons": {
+      "description": "Boolean comparison operations",
+      "rules": [
+        {
+          "id": "is_high_earner",
+          "trns": "BOOLEAN[GREATER_THAN(attr('salary'), 100000)]",
+          "affected_source": ["salary"],
+          "affected_target": "is_high_earner"
+        },
+        {
+          "id": "is_senior_citizen",
+          "trns": "BOOLEAN[GREATER_OR_EQUAL(attr('age'), 65)]",
+          "affected_source": ["age"],
+          "affected_target": "is_senior_citizen"
+        },
+        {
+          "id": "email_matches",
+          "trns": "BOOLEAN[EQUALS(attr('email'), attr('verified_email'))]",
+          "affected_source": ["email", "verified_email"],
+          "affected_target": "email_matches"
+        }
+      ]
+    },
+    
+    "date_operations": {
+      "description": "Date processing and calculations",
+      "rules": [
+        {
+          "id": "formatted_date",
+          "trns": "DATE[FORMAT(attr('birth_date'), 'YYYY-MM-DD')]",
+          "affected_source": ["birth_date"],
+          "affected_target": "formatted_birth_date"
+        },
+        {
+          "id": "tenure_days",
+          "trns": "DATE[DIFF_DAYS(attr('end_date'), attr('start_date'))]",
+          "affected_source": ["end_date", "start_date"],
+          "affected_target": "tenure_days"
+        },
+        {
+          "id": "future_date",
+          "trns": "DATE[ADD_DAYS(attr('start_date'), 30)]",
+          "affected_source": ["start_date"],
+          "affected_target": "review_date"
+        },
+        {
+          "id": "birth_year",
+          "trns": "DATE[EXTRACT(attr('birth_date'), 'year')]",
+          "affected_source": ["birth_date"],
+          "affected_target": "birth_year"
+        }
+      ]
+    },
+    
+    "array_operations": {
+      "description": "Array and list processing",
+      "rules": [
+        {
+          "id": "tags_string",
+          "trns": "ARRAY[JOIN(attr('tags'), ', ')]",
+          "affected_source": ["tags"],
+          "affected_target": "tags_string"
+        },
+        {
+          "id": "tag_count",
+          "trns": "ARRAY[LENGTH(attr('tags'))]",
+          "affected_source": ["tags"],
+          "affected_target": "tag_count"
+        },
+        {
+          "id": "first_tag",
+          "trns": "ARRAY[GET(attr('tags'), 0)]",
+          "affected_source": ["tags"],
+          "affected_target": "primary_tag"
+        },
+        {
+          "id": "uppercase_tags",
+          "trns": "ARRAY[MAP(attr('tags'), 'UPPER')]",
+          "affected_source": ["tags"],
+          "affected_target": "tags_upper"
+        }
+      ]
+    },
+    
+    "aggregation_operations": {
+      "description": "Aggregation and statistical operations",
+      "rules": [
+        {
+          "id": "total_sales",
+          "trns": "AGGREGATION[SUM(attr('sales_array'))]",
+          "affected_source": ["sales_array"],
+          "affected_target": "total_sales"
+        },
+        {
+          "id": "average_score",
+          "trns": "AGGREGATION[AVG(attr('scores'))]",
+          "affected_source": ["scores"],
+          "affected_target": "average_score"
+        },
+        {
+          "id": "max_price",
+          "trns": "AGGREGATION[MAX(attr('prices'))]",
+          "affected_source": ["prices"],
+          "affected_target": "max_price"
+        },
+        {
+          "id": "unique_categories",
+          "trns": "AGGREGATION[DISTINCT(attr('categories'))]",
+          "affected_source": ["categories"],
+          "affected_target": "unique_categories"
+        }
+      ]
+    },
+    
+    "complex_nested_operations": {
+      "description": "Complex nested transformations",
+      "rules": [
+        {
+          "id": "employee_summary",
+          "trns": "STRING[CONCAT('Employee: ', attr('first_name'), ' ', attr('last_name'), ' (', LOGICAL[IF(attr('age') >= 65, 'Senior', 'Regular'), ')')]",
+          "affected_source": ["first_name", "last_name", "age"],
+          "affected_target": "employee_summary"
+        },
+        {
+          "id": "salary_with_bonus",
+          "trns": "LOGICAL[IF(LOGICAL[AND(attr('performance') > 8, attr('tenure') > 2)], MATH[ADD(attr('base_salary'), MATH[MUL(attr('base_salary'), 0.2)])], attr('base_salary'))]",
+          "affected_source": ["performance", "tenure", "base_salary"],
+          "affected_target": "final_salary"
+        },
+        {
+          "id": "risk_assessment",
+          "trns": "LOGICAL[IF(LOGICAL[OR(attr('age') < 25, attr('credit_score') < 600)], 'High Risk', LOGICAL[IF(attr('credit_score') > 750, 'Low Risk', 'Medium Risk')])]",
+          "affected_source": ["age", "credit_score"],
+          "affected_target": "risk_level"
+        }
+      ]
+    },
+    
+    "filter_operations": {
+      "description": "Data filtering operations",
+      "rules": [
+        {
+          "id": "active_only",
+          "trns": "FILTERS[INCLUDE_IF(BOOLEAN[EQUALS(attr('status'), 'Active')])]",
+          "affected_source": ["status"],
+          "affected_target": "filtered_data"
+        },
+        {
+          "id": "exclude_minors",
+          "trns": "FILTERS[EXCLUDE_IF(BOOLEAN[LESS_THAN(attr('age'), 18)])]",
+          "affected_source": ["age"],
+          "affected_target": "adults_only"
+        }
+      ]
+    }
+  },
+  
+  "complete_example_request": {
+    "source_file_path": "storage/input/employees.parquet",
+    "source_schema": {
+      "role": "source",
+      "fileType": "csv",
+      "schemaId": "schm-csv-emp-001",
+      "schemaName": "employee_csv_v1",
+      "attributes": {
+        "first_name": {
+          "name": "first_name",
+          "dataType": "string",
+          "column_no": 1
+        },
+        "last_name": {
+          "name": "last_name",
+          "dataType": "string",
+          "column_no": 2
+        },
+        "age": {
+          "name": "age",
+          "dataType": "integer",
+          "column_no": 3
+        },
+        "base_salary": {
+          "name": "base_salary",
+          "dataType": "float",
+          "column_no": 4
+        },
+        "bonus": {
+          "name": "bonus",
+          "dataType": "float",
+          "column_no": 5
+        },
+        "status": {
+          "name": "status",
+          "dataType": "string",
+          "column_no": 6
+        },
+        "verified": {
+          "name": "verified",
+          "dataType": "boolean",
+          "column_no": 7
+        },
+        "performance": {
+          "name": "performance",
+          "dataType": "float",
+          "column_no": 8
+        },
+        "tenure": {
+          "name": "tenure",
+          "dataType": "integer",
+          "column_no": 9
+        }
+      }
+    },
+    "target_schema": {
+      "role": "target",
+      "fileType": "json",
+      "schemaId": "schm-json-emp-001",
+      "schemaName": "employee_json_v1",
+      "attributes": {
+        "employee_summary": {
+          "name": "employee_summary",
+          "dataType": "string"
+        },
+        "age_category": {
+          "name": "age_category",
+          "dataType": "string"
+        },
+        "is_eligible": {
+          "name": "is_eligible",
+          "dataType": "boolean"
+        },
+        "final_salary": {
+          "name": "final_salary",
+          "dataType": "float"
+        },
+        "is_high_earner": {
+          "name": "is_high_earner",
+          "dataType": "boolean"
+        }
+      }
+    },
+    "transformation_mapping": {
+      "mappingId": "emp-transform-001",
+      "mappingName": "employee_comprehensive_transformation",
+      "createdAt": "2025-01-15T10:30:00.000Z",
+      "sourceSchemaId": "schm-csv-emp-001",
+      "targetSchemaId": "schm-json-emp-001",
+      "rules": [
+        {
+          "id": "rule_1",
+          "trns": "STRING[CONCAT('Employee: ', attr('first_name'), ' ', attr('last_name'), ' (', LOGICAL[IF(attr('age') >= 65, 'Senior', 'Regular'), ')')]",
+          "affected_source": ["first_name", "last_name", "age"],
+          "affected_target": "employee_summary"
+        },
+        {
+          "id": "rule_2",
+          "trns": "LOGICAL[IF(attr('age') >= 65, 'Senior', LOGICAL[IF(attr('age') >= 18, 'Adult', 'Minor')])]",
+          "affected_source": ["age"],
+          "affected_target": "age_category"
+        },
+        {
+          "id": "rule_3",
+          "trns": "LOGICAL[AND(attr('age') >= 18, attr('status') == 'Active', attr('verified') == true)]",
+          "affected_source": ["age", "status", "verified"],
+          "affected_target": "is_eligible"
+        },
+        {
+          "id": "rule_4",
+          "trns": "LOGICAL[IF(LOGICAL[AND(attr('performance') > 8, attr('tenure') > 2)], MATH[ADD(attr('base_salary'), MATH[MUL(attr('base_salary'), 0.2)])], attr('base_salary'))]",
+          "affected_source": ["performance", "tenure", "base_salary"],
+          "affected_target": "final_salary"
+        },
+        {
+          "id": "rule_5",
+          "trns": "BOOLEAN[GREATER_THAN(attr('final_salary'), 100000)]",
+          "affected_source": ["final_salary"],
+          "affected_target": "is_high_earner"
+        }
+      ]
+    }
+  }
+}

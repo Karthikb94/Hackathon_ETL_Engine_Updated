@@ -1,0 +1,6 @@
+employee_id,first_name,last_name,email,department,salary,hire_date,is_active
+employee_id,JOHN,DOE,john.doe@company.com,department,75000.5,2020-01-15,is_active
+employee_id,JANE,SMITH,jane.smith@company.com,department,68000.3,2019-03-22,is_active
+employee_id,BOB,JOHNSON,bob.johnson@company.com,department,72000.8,2021-06-10,is_active
+employee_id,ALICE,BROWN,alice.brown@company.com,department,65000.0,2018-11-05,is_active
+employee_id,CHARLIE,WILSON,charlie.wilson@company.com,department,80000.0,2022-02-14,is_active

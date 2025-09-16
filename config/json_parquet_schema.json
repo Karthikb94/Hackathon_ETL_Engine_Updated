@@ -1,6 +1,6 @@
 {
   "role": "source",
-  "fileType": "parquet",
+  "fileType": "json",
   "schemaId": "json_parquet_schema",
   "description": "Schema for Parquet file created from JSON source (flattened)",
   "attributes": {

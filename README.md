@@ -62,11 +62,13 @@ The comprehensive documentation includes:
 
 ## 🎯 Key Features
 
+- **🎯 Complete Operation Support:** All 48 operations from Transformation Rules Specification
+- **🔗 Multi-Column Operations:** 22/48 functions support multiple columns (46% coverage)
 - **🚀 High Performance:** Built with Polars for lightning-fast data processing
 - **💾 Memory Efficient:** Streaming support for large files (100MB+ threshold)
 - **📊 Multi-Format Support:** CSV, JSON, XML, Fixed-Width, Excel, Parquet
-- **🔧 Flexible Transformations:** Mathematical, string, conditional, date logic
-- **🎯 Clean Syntax:** Simple functions and bracketed calls for easy transformations
+- **🔧 Flexible Transformations:** MATH, STRING, LOGICAL, BOOLEAN, DATE, ARRAY, AGGREGATION, FILTERS
+- **🎯 Clean Syntax:** OPERATION[METHOD()] format with both attr() and ATTR() support
 - **📍 Positional Data Handling:** Advanced fixed-width and positional data support
 - **🏗️ Multi-Engine Architecture:** Shared storage for multiple engines
 - **📝 Comprehensive Logging:** Detailed operation logs and error tracking
@@ -98,12 +100,27 @@ curl -X POST "http://localhost:8001/transform" \
     "target_schema": {"role": "target", "fileType": "csv", "attributes": {}},
     "transformation_mapping": {
       "rules": [
-        {"id": "pass_id", "affected_target": "employee_id", "affected_source": ["id"], "trns": ""},
-        {"id": "upper_name", "affected_target": "employee_name", "affected_source": ["name"], "trns": "STRING[UPPER(attr(\"name\"))]"},
-        {"id": "bonus", "affected_target": "salary_with_bonus", "affected_source": ["salary"], "trns": "MATH[ADD(attr(\"salary\"), 1000)]"}
+        {"id": "pass_id", "affected_target": "employee_id", "affected_source": ["id"], "trns": "DIRECT[ATTR('id')]"},
+        {"id": "upper_name", "affected_target": "employee_name", "affected_source": ["name"], "trns": "STRING[UPPER(attr('name'))]"},
+        {"id": "bonus", "affected_target": "salary_with_bonus", "affected_source": ["salary"], "trns": "MATH[ADD(attr('salary'), 1000)]"},
+        {"id": "age_category", "affected_target": "category", "affected_source": ["age"], "trns": "LOGICAL[IF(attr('age') >= 65, 'Senior', 'Adult')]"}
       ]
     }
   }'
+```
+
+### Response Example
+```json
+{
+  "status": "success",
+  "run_id": "20250916_103226",
+  "source_file": "storage/input/employees.parquet",
+  "output_file": "storage/transformed/employees_transformed_20250916_103226.json",
+  "log_file": "storage/logs/etl_20250916_103226.log",
+  "error_file": null,
+  "processing_time_seconds": 0.29,
+  "processing_mode": "standard"
+}
 ```
 
 ### Advanced Transformation Example

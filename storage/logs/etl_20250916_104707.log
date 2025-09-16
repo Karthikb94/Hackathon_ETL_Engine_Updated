@@ -1,0 +1,8 @@
+ETL Run ID: 20250916_104707
+Source File: storage/input/fixedwidth_source.parquet
+Output File: fixedwidth_source_transformed_20250916_104707
+Output Format: json
+Rows Processed: 5
+Columns Output: 8
+Processing Time: 0.02 seconds
+Status: Success

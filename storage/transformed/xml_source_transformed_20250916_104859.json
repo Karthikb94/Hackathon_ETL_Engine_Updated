@@ -1,0 +1,52 @@
+[
+  {
+    "employee_id": "employee_id",
+    "first_name": "JOHN",
+    "last_name": "DOE",
+    "email": "john.doe@company.com",
+    "department": "department",
+    "salary": 75000.5,
+    "hire_date": "2020-01-15",
+    "is_active": "is_active"
+  },
+  {
+    "employee_id": "employee_id",
+    "first_name": "JANE",
+    "last_name": "SMITH",
+    "email": "jane.smith@company.com",
+    "department": "department",
+    "salary": 68000.3,
+    "hire_date": "2019-03-22",
+    "is_active": "is_active"
+  },
+  {
+    "employee_id": "employee_id",
+    "first_name": "BOB",
+    "last_name": "JOHNSON",
+    "email": "bob.johnson@company.com",
+    "department": "department",
+    "salary": 72000.8,
+    "hire_date": "2021-06-10",
+    "is_active": "is_active"
+  },
+  {
+    "employee_id": "employee_id",
+    "first_name": "ALICE",
+    "last_name": "BROWN",
+    "email": "alice.brown@company.com",
+    "department": "department",
+    "salary": 65000.0,
+    "hire_date": "2018-11-05",
+    "is_active": "is_active"
+  },
+  {
+    "employee_id": "employee_id",
+    "first_name": "CHARLIE",
+    "last_name": "WILSON",
+    "email": "charlie.wilson@company.com",
+    "department": "department",
+    "salary": 80000.0,
+    "hire_date": "2022-02-14",
+    "is_active": "is_active"
+  }
+]

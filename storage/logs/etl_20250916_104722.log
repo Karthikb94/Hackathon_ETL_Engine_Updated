@@ -1,0 +1,8 @@
+ETL Run ID: 20250916_104722
+Source File: storage/input/xml_source.parquet
+Output File: xml_source_transformed_20250916_104722
+Output Format: csv
+Rows Processed: 5
+Columns Output: 8
+Processing Time: 0.05 seconds
+Status: Success

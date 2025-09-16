@@ -119,7 +119,7 @@
         "id": "rule_1",
         "affected_source": ["customer_id"],
         "affected_target": "customer_id",
-        "trns": "attr('customer_id')"
+        "trns": "DIRECT[ATTR(customer_id)]"
       },
       {
         "id": "rule_2",

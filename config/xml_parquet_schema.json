@@ -1,6 +1,6 @@
 {
   "role": "source",
-  "fileType": "parquet",
+  "fileType": "xml",
   "schemaId": "xml_parquet_schema",
   "description": "Schema for Parquet file created from XML source (flattened)",
   "attributes": {

@@ -1,0 +1,8 @@
+ETL Run ID: 20250916_104716
+Source File: storage/input/json_source.parquet
+Output File: json_source_transformed_20250916_104716
+Output Format: xml
+Rows Processed: 5
+Columns Output: 8
+Processing Time: 0.02 seconds
+Status: Success

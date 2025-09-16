@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from .logger import get_logger
 from .reader import read_data_file, read_data_file_with_schema, should_use_streaming, read_data_file_with_schema_streaming
 from .transformer import apply_transformations_from_rules
@@ -17,11 +17,46 @@ from .error_handler import TransformationErrorHandler, create_error_response
 
 
 class UnifiedTransformRequest(BaseModel):
-    # Required parameters only - minimal format
-    source_file_path: str  # Full path to the parquet file (ONLY parquet allowed)
-    source_schema: dict    # Source schema as JSON object (MANDATORY for proper parquet reading)
-    target_schema: dict    # Target schema as JSON object with new format
-    transformation_mapping: dict  # Transformation mapping as JSON object
+    # Required parameters with validation
+    source_file_path: str = Field(..., description="Relative path to the parquet file (ONLY parquet allowed)")
+    source_schema: dict = Field(..., description="Source schema as JSON object (MANDATORY for proper parquet reading)")
+    target_schema: dict = Field(..., description="Target schema as JSON object with new format")
+    transformation_mapping: dict = Field(..., description="Transformation mapping as JSON object")
+    
+    @validator('source_file_path')
+    def validate_source_file_path(cls, v):
+        if not v:
+            raise ValueError('source_file_path cannot be empty')
+        if not v.lower().endswith('.parquet'):
+            raise ValueError('Only .parquet files are allowed as input')
+        # Convert to forward slashes for consistency
+        return v.replace("\\", "/")
+    
+    @validator('source_schema')
+    def validate_source_schema(cls, v):
+        if not v:
+            raise ValueError('source_schema cannot be empty')
+        if 'fileType' not in v:
+            raise ValueError('source_schema must contain fileType field')
+        if 'attributes' not in v:
+            raise ValueError('source_schema must contain attributes field')
+        return v
+    
+    @validator('target_schema')
+    def validate_target_schema(cls, v):
+        if not v:
+            raise ValueError('target_schema cannot be empty')
+        if 'fileType' not in v:
+            raise ValueError('target_schema must contain fileType field')
+        return v
+    
+    @validator('transformation_mapping')
+    def validate_transformation_mapping(cls, v):
+        if not v:
+            raise ValueError('transformation_mapping cannot be empty')
+        if 'rules' not in v and 'mappings' not in v:
+            raise ValueError('transformation_mapping must contain either "rules" or "mappings" field')
+        return v
 
 app = FastAPI(
     title="ETL Engine v1", 
@@ -323,25 +358,21 @@ async def transform_data(request: UnifiedTransformRequest):
             f.write(f"Processing Time: {processing_time:.2f} seconds\n")
             f.write(f"Status: Success\n")
         
-        # Get absolute paths for all files and convert to forward slashes for cleaner JSON
-        output_file_absolute = os.path.abspath(f"{output_path}.{output_format}").replace("\\", "/")
-        log_file_absolute = os.path.abspath(log_path).replace("\\", "/")
-        source_file_absolute = os.path.abspath(source_file_path).replace("\\", "/")
+        # Get relative paths for all files and convert to forward slashes for cleaner JSON
+        output_file_relative = f"{output_path}.{output_format}".replace("\\", "/")
+        log_file_relative = log_path.replace("\\", "/")
+        source_file_relative = source_file_path.replace("\\", "/")
         
         # Prepare response content based on processing mode
         response_content = {
             "status": "success",
             "run_id": run_id,
-            "source_file": source_file_path,
-            "source_file_absolute": source_file_absolute,
-            "output_file": output_filename_with_timestamp,
-            "output_file_absolute": output_file_absolute,
+            "source_file": source_file_relative,
+            "output_file": output_file_relative,
             "output_format": output_format,
             "processing_time_seconds": round(processing_time, 2),
-            "log_file": log_filename,
-            "log_file_absolute": log_file_absolute,
+            "log_file": log_file_relative,
             "error_file": None,  # No errors occurred
-            "error_file_absolute": None,
             "message": "Transformation completed successfully",
             "timestamp": datetime.now().isoformat()
         }
@@ -415,40 +446,39 @@ def _process_large_file_streaming(source_file_path: str, source_schema: Dict[str
         # Read file in chunks
         df_chunks = read_data_file_with_schema_streaming(source_file_path, source_schema, chunk_size)
         
-        # Transform each chunk
-        transformed_chunks = []
-        error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
-        
-        for chunk in df_chunks:
-            if chunk.is_empty():
-                continue
-                
-            try:
-                # Apply transformations to chunk
-                transformed_chunk = apply_transformations_from_rules(chunk, rules, error_handler)
-                transformed_chunks.append(transformed_chunk)
-                
-                total_rows_processed += chunk.shape[0]
-                total_chunks_processed += 1
-                
-                # Log progress every 10 chunks
-                if total_chunks_processed % 10 == 0:
-                    progress_info = {
-                        "chunks_processed": total_chunks_processed,
-                        "rows_processed": total_rows_processed,
-                        "current_chunk_size": chunk.shape[0]
-                    }
-                    logger.info(f"Streaming progress: {progress_info}")
-                    
-            except Exception as e:
-                logger.error(f"Failed to transform chunk {total_chunks_processed + 1}: {e}")
-                raise e
-        
-        # Write output in streaming mode
+        # Create generator for transformed chunks (memory efficient)
         def transformed_chunk_generator():
-            for chunk in transformed_chunks:
-                yield chunk
+            nonlocal total_rows_processed, total_chunks_processed
+            error_handler = TransformationErrorHandler(BASE_ERROR_DIR, run_id)
+            
+            for chunk in df_chunks:
+                if chunk.is_empty():
+                    continue
+                    
+                try:
+                    # Apply transformations to chunk
+                    transformed_chunk = apply_transformations_from_rules(chunk, rules, error_handler)
+                    
+                    total_rows_processed += chunk.shape[0]
+                    total_chunks_processed += 1
+                    
+                    # Log progress every 10 chunks
+                    if total_chunks_processed % 10 == 0:
+                        progress_info = {
+                            "chunks_processed": total_chunks_processed,
+                            "rows_processed": total_rows_processed,
+                            "current_chunk_size": chunk.shape[0]
+                        }
+                        logger.info(f"Streaming progress: {progress_info}")
+                    
+                    # Yield transformed chunk immediately (don't store in memory)
+                    yield transformed_chunk
+                        
+                except Exception as e:
+                    logger.error(f"Failed to transform chunk {total_chunks_processed + 1}: {e}")
+                    raise e
         
+        # Write output in streaming mode using the generator
         write_output_streaming(transformed_chunk_generator(), output_path, output_format, mapping_config, logger)
         
         # Log final streaming results

@@ -62,13 +62,18 @@ class AdvancedTransformer:
         try:
             # Try simple parser first (handles new formats like DIRECT[ATTR()])
             return parse_simple_transform(expression, df)
-        except Exception:
+        except Exception as e1:
             try:
-                # Try advanced parsing
+                # Try advanced parsing for complex expressions
                 return self._parse_advanced(expression, df)
-            except Exception:
-                # Last resort: try to handle it as a simple field reference
-                return self._handle_simple_field_reference(expression, df)
+            except Exception as e2:
+                try:
+                    # Try legacy parse_transform_expression for backward compatibility
+                    from .utils import parse_transform_expression
+                    return parse_transform_expression(expression)
+                except Exception as e3:
+                    # Last resort: try to handle it as a simple field reference
+                    return self._handle_simple_field_reference(expression, df)
     
     def _handle_simple_field_reference(self, expression: str, df: pl.DataFrame) -> pl.Expr:
         """Handle simple field references as last resort"""
@@ -210,10 +215,10 @@ class AdvancedTransformer:
         return args
     
     def _parse_simple_reference(self, expr: str, df: pl.DataFrame) -> TransformationNode:
-        """Parse simple references like attr('column') or literals"""
+        """Parse simple references like attr('column') or ATTR('column') or literals"""
         expr = expr.strip()
         
-        # Handle attr('column') references
+        # Handle attr('column') or attr("column") references
         attr_match = re.match(r"attr\(\s*['\"](.+?)['\"]\s*\)", expr, re.IGNORECASE)
         if attr_match:
             column_name = attr_match.group(1)
@@ -223,10 +228,10 @@ class AdvancedTransformer:
             self.nodes.append(node)
             return node
         
-        # Handle ATTR(column) format
-        attr_match = re.match(r"ATTR\(\s*([^)]+)\s*\)", expr, re.IGNORECASE)
+        # Handle ATTR('column') or ATTR("column") format
+        attr_match = re.match(r"ATTR\(\s*['\"](.+?)['\"]\s*\)", expr, re.IGNORECASE)
         if attr_match:
-            column_name = attr_match.group(1).strip()
+            column_name = attr_match.group(1)
             if column_name not in df.columns:
                 raise TransformError(f"Column '{column_name}' not found in data")
             node = TransformationNode('ATTR', [column_name], self.PRECEDENCE['ATTR'])

@@ -1,6 +1,6 @@
 {
   "role": "source",
-  "fileType": "parquet",
+  "fileType": "csv",
   "schemaId": "csv_parquet_schema",
   "description": "Schema for Parquet file created from CSV source",
   "attributes": {

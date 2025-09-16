@@ -1,0 +1,18 @@
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - ETL processing started: {'run_id': '20250916_104719', 'source_file': 'storage/input/json_source.parquet', 'source_schema_type': 'json', 'source_schema_attributes': 8, 'target_schema_type': 'fixedWidth', 'target_schema_attributes': 8, 'output_format': 'fixed_width', 'rules_count': 8, 'output_path': 'storage/transformed\\json_source_transformed_20250916_104719'}
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - Data loaded successfully: {'rows_loaded': 5, 'columns_loaded': 8, 'available_columns': ['employee_id', 'first_name', 'last_name', 'email', 'department', 'salary', 'hire_date', 'is_active'], 'dataframe_schema': "Schema([('employee_id', Int64), ('first_name', String), ('last_name', String), ('email', String), ('department', String), ('salary', Float64), ('hire_date', Date), ('is_active', Boolean)])", 'original_format': 'json', 'processing_mode': 'standard'}
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - Transformations completed: {'input_rows': 5, 'input_columns': 8, 'output_rows': 5, 'output_columns': 8, 'rules_applied': 8}
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - Writing fixed-width file with 8 fields
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - Target schema file type: fixedwidth
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'employee_id' at row 0: 'employee_id' -> width 10
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'is_active' at row 0: 'is_active' -> width 5
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'employee_id' at row 1: 'employee_id' -> width 10
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'is_active' at row 1: 'is_active' -> width 5
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'employee_id' at row 2: 'employee_id' -> width 10
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'is_active' at row 2: 'is_active' -> width 5
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'employee_id' at row 3: 'employee_id' -> width 10
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'is_active' at row 3: 'is_active' -> width 5
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'employee_id' at row 4: 'employee_id' -> width 10
+2025-09-16 10:47:19 - etl_20250916_104719 - WARNING - Truncating column 'is_active' at row 4: 'is_active' -> width 5
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - Successfully wrote fixed-width file: storage/transformed\json_source_transformed_20250916_104719.txt
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - Output written successfully: {'output_path': 'storage/transformed\\json_source_transformed_20250916_104719', 'output_format': 'fixed_width', 'rows_written': 5, 'columns_written': 8}
+2025-09-16 10:47:19 - etl_20250916_104719 - INFO - ETL run completed successfully: {'run_id': '20250916_104719', 'processing_time_seconds': 0.02, 'status': 'success', 'rows_processed': 5, 'columns_output': 8, 'processing_mode': 'standard'}

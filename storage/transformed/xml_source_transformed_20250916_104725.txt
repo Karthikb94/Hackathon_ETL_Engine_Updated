@@ -1,0 +1,5 @@
+ employee_iJOHN                DOE                 john.doe@company.com          department        75000.52020-01-15is_ac
+ employee_iJANE                SMITH               jane.smith@company.com        department        68000.32019-03-22is_ac
+ employee_iBOB                 JOHNSON             bob.johnson@company.com       department        72000.82021-06-10is_ac
+ employee_iALICE               BROWN               alice.brown@company.com       department        65000.02018-11-05is_ac
+ employee_iCHARLIE             WILSON              charlie.wilson@company.com    department        80000.02022-02-14is_ac

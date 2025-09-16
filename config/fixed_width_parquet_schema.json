@@ -1,6 +1,6 @@
 {
   "role": "source",
-  "fileType": "parquet",
+  "fileType": "fixedwidth",
   "schemaId": "fw_parquet_schema",
   "description": "Schema for Parquet file created from Fixed-Width source",
   "attributes": {

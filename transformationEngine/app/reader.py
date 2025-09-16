@@ -173,14 +173,30 @@ def _read_fixed_width_with_schema(file_path: str, attributes: Dict[str, Any]) ->
             empty_data = {attr_name: [] for attr_name in attributes.keys()}
             return pl.DataFrame(empty_data)
     
-    # For small files, use the original approach but optimized
-    data = []
-    with open(file_path, 'r', encoding='utf-8') as f:
-        for line in f:
-            row = _parse_fixed_width_line(line, attributes)
-            data.append(row)
-    
-    return pl.DataFrame(data)
+    # For small files, use optimized vectorized approach
+    try:
+        # Read all lines at once for better performance
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = [line.rstrip('\n\r') for line in f if line.strip()]
+        
+        if not lines:
+            # Return empty DataFrame with expected columns
+            empty_data = {attr_name: [] for attr_name in attributes.keys()}
+            return pl.DataFrame(empty_data)
+        
+        # Use vectorized parsing for better performance
+        return _parse_fixed_width_vectorized(lines, attributes)
+        
+    except Exception as e:
+        # Fallback to line-by-line parsing if vectorized fails
+        data = []
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                if line.strip():  # Skip empty lines
+                    row = _parse_fixed_width_line(line, attributes)
+                    data.append(row)
+        
+        return pl.DataFrame(data)
 
 def _parse_fixed_width_line(line: str, attributes: Dict[str, Any]) -> Dict[str, Any]:
     """Parse a single line from a fixed-width file based on schema attributes"""
@@ -218,11 +234,65 @@ def _parse_fixed_width_line(line: str, attributes: Dict[str, Any]) -> Dict[str, 
     
     return row
 
+def _parse_fixed_width_vectorized(lines: List[str], attributes: Dict[str, Any]) -> pl.DataFrame:
+    """Parse fixed-width data using vectorized operations for better performance"""
+    if not lines:
+        empty_data = {attr_name: [] for attr_name in attributes.keys()}
+        return pl.DataFrame(empty_data)
+    
+    # Prepare column definitions
+    column_defs = []
+    for attr_name, attr_info in attributes.items():
+        start_pos = attr_info.get("start_position", 0)
+        width = attr_info.get("width", 10)
+        data_type = attr_info.get("dataType", "string").lower()
+        column_defs.append((attr_name, start_pos, width, data_type))
+    
+    # Create a DataFrame with raw string data first
+    data = {}
+    for attr_name, start_pos, width, data_type in column_defs:
+        # Extract substrings for all lines at once
+        values = []
+        for line in lines:
+            end_pos = min(start_pos + width, len(line))
+            if start_pos < len(line):
+                value = line[start_pos:end_pos].strip()
+            else:
+                value = ""
+            values.append(value)
+        data[attr_name] = values
+    
+    # Create DataFrame with string data
+    df = pl.DataFrame(data)
+    
+    # Apply type conversions
+    cast_exprs = []
+    for attr_name, _, _, data_type in column_defs:
+        if data_type == "integer":
+            cast_exprs.append(pl.col(attr_name).cast(pl.Int64, strict=False).fill_null(0))
+        elif data_type == "float":
+            cast_exprs.append(pl.col(attr_name).cast(pl.Float64, strict=False).fill_null(0.0))
+        elif data_type == "boolean":
+            cast_exprs.append(pl.col(attr_name).str.to_lowercase().is_in(["1", "true", "y", "yes"]).cast(pl.Boolean))
+        elif data_type == "date":
+            # Keep as string for now, date parsing will be handled by Polars
+            cast_exprs.append(pl.col(attr_name))
+        else:  # string
+            cast_exprs.append(pl.col(attr_name).cast(pl.Utf8))
+    
+    if cast_exprs:
+        df = df.with_columns(cast_exprs)
+    
+    return df
+
 def _read_fixed_width_streaming(file_path: str, attributes: Dict[str, Any], chunk_size: int = 10000) -> Generator[pl.DataFrame, None, None]:
     """Stream fixed-width file in chunks to reduce memory usage"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             chunk_data = []
+            line_num = 0
+            error_count = 0
+            max_errors = 100  # Stop after too many errors
             
             for line_num, line in enumerate(f, 1):
                 # Skip empty lines
@@ -235,18 +305,31 @@ def _read_fixed_width_streaming(file_path: str, attributes: Dict[str, Any], chun
                     
                     # Yield chunk when it reaches the desired size
                     if len(chunk_data) >= chunk_size:
-                        yield pl.DataFrame(chunk_data)
+                        if chunk_data:  # Only yield if we have data
+                            yield pl.DataFrame(chunk_data)
                         chunk_data = []
                         
                 except Exception as e:
+                    error_count += 1
                     # Log parsing error but continue processing
                     print(f"Warning: Error parsing line {line_num}: {e}")
+                    
+                    # Stop if too many errors
+                    if error_count >= max_errors:
+                        print(f"Error: Too many parsing errors ({max_errors}), stopping processing")
+                        break
                     continue
             
             # Yield remaining data
             if chunk_data:
                 yield pl.DataFrame(chunk_data)
                 
+    except FileNotFoundError:
+        raise ReaderError(f"Fixed-width file not found: {file_path}")
+    except PermissionError:
+        raise ReaderError(f"Permission denied reading file: {file_path}")
+    except UnicodeDecodeError as e:
+        raise ReaderError(f"Encoding error reading file: {e}. Try specifying encoding.")
     except Exception as e:
         raise ReaderError(f"Failed to stream fixed-width file: {e}") from e
 
@@ -516,18 +599,42 @@ def _read_json_streaming(file_path: str, attributes: Dict[str, Any],
         
         with open(file_path, 'r', encoding='utf-8') as f:
             chunk = []
-            for line in f:
+            line_num = 0
+            error_count = 0
+            max_errors = 100  # Stop after too many errors
+            
+            for line_num, line in enumerate(f, 1):
+                if not line.strip():  # Skip empty lines
+                    continue
+                    
                 try:
                     data = json.loads(line.strip())
                     chunk.append(data)
                     
                     if len(chunk) >= chunk_size:
-                        df = pl.DataFrame(chunk)
-                        if not df.is_empty():
-                            df = _apply_schema_to_dataframe(df, attributes)
-                            yield df
-                        chunk = []
-                except json.JSONDecodeError:
+                        if chunk:  # Only process if we have data
+                            df = pl.DataFrame(chunk)
+                            if not df.is_empty():
+                                df = _apply_schema_to_dataframe(df, attributes)
+                                yield df
+                            chunk = []
+                            
+                except json.JSONDecodeError as e:
+                    error_count += 1
+                    print(f"Warning: JSON decode error on line {line_num}: {e}")
+                    
+                    # Stop if too many errors
+                    if error_count >= max_errors:
+                        print(f"Error: Too many JSON decode errors ({max_errors}), stopping processing")
+                        break
+                    continue
+                except Exception as e:
+                    error_count += 1
+                    print(f"Warning: Error processing line {line_num}: {e}")
+                    
+                    if error_count >= max_errors:
+                        print(f"Error: Too many processing errors ({max_errors}), stopping processing")
+                        break
                     continue
             
             # Process remaining chunk
@@ -537,6 +644,12 @@ def _read_json_streaming(file_path: str, attributes: Dict[str, Any],
                     df = _apply_schema_to_dataframe(df, attributes)
                     yield df
                     
+    except FileNotFoundError:
+        raise ReaderError(f"JSON file not found: {file_path}")
+    except PermissionError:
+        raise ReaderError(f"Permission denied reading file: {file_path}")
+    except UnicodeDecodeError as e:
+        raise ReaderError(f"Encoding error reading file: {e}. Try specifying encoding.")
     except Exception as e:
         raise ReaderError(f"Failed to stream JSON file: {e}") from e
 
