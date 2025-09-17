@@ -183,19 +183,20 @@ def create_error_response(run_id: str,
                          error_message: str) -> Dict[str, Any]:
     """Create a standardized error response."""
     
-    # Convert paths to forward slashes for cleaner JSON (keep as relative paths)
-    source_file_relative = source_file.replace("\\", "/") if source_file else None
-    output_file_relative = output_file.replace("\\", "/") if output_file else None
-    log_file_relative = log_file.replace("\\", "/") if log_file else None
-    error_file_relative = error_file_path.replace("\\", "/") if error_file_path else None
+    # Convert paths to absolute paths with forward slashes for cleaner JSON
+    import os
+    source_file_absolute = os.path.abspath(source_file).replace("\\", "/") if source_file else None
+    output_file_absolute = os.path.abspath(output_file).replace("\\", "/") if output_file else None
+    log_file_absolute = os.path.abspath(log_file).replace("\\", "/") if log_file else None
+    error_file_absolute = os.path.abspath(error_file_path).replace("\\", "/") if error_file_path else None
     
     return {
         "status": "error",
         "run_id": run_id,
-        "source_file": source_file_relative,
-        "output_file": output_file_relative,
-        "log_file": log_file_relative,
-        "error_file": error_file_relative,
+        "source_file": source_file_absolute,
+        "output_file": output_file_absolute,
+        "log_file": log_file_absolute,
+        "error_file": error_file_absolute,
         "error_message": error_message,
         "message": "Transformation failed. Check error file for details.",
         "timestamp": datetime.now().isoformat()

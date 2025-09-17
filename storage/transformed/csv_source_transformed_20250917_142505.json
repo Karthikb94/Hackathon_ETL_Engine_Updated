@@ -1,0 +1,82 @@
+[
+  {
+    "employee_id": 1,
+    "first_name": "JOHN",
+    "last_name": "DOE",
+    "email": "john.doe@company.com",
+    "department": "Engineering",
+    "salary": 75000.5
+  },
+  {
+    "employee_id": 2,
+    "first_name": "JANE",
+    "last_name": "SMITH",
+    "email": "jane.smith@company.com",
+    "department": "Marketing",
+    "salary": 68000.3
+  },
+  {
+    "employee_id": 3,
+    "first_name": "BOB",
+    "last_name": "JOHNSON",
+    "email": "bob.johnson@company.com",
+    "department": "Sales",
+    "salary": 72000.8
+  },
+  {
+    "employee_id": 4,
+    "first_name": "ALICE",
+    "last_name": "BROWN",
+    "email": "alice.brown@company.com",
+    "department": "HR",
+    "salary": 65000.0
+  },
+  {
+    "employee_id": 5,
+    "first_name": "CHARLIE",
+    "last_name": "WILSON",
+    "email": "charlie.wilson@company.com",
+    "department": "Finance",
+    "salary": 80000.0
+  },
+  {
+    "employee_id": 6,
+    "first_name": "DIANA",
+    "last_name": "DAVIS",
+    "email": "diana.davis@company.com",
+    "department": "IT",
+    "salary": 70000.0
+  },
+  {
+    "employee_id": 7,
+    "first_name": "EVE",
+    "last_name": "MILLER",
+    "email": "eve.miller@company.com",
+    "department": "Operations",
+    "salary": 75000.0
+  },
+  {
+    "employee_id": 8,
+    "first_name": "FRANK",
+    "last_name": "GARCIA",
+    "email": "frank.garcia@company.com",
+    "department": "Legal",
+    "salary": 85000.0
+  },
+  {
+    "employee_id": 9,
+    "first_name": "GRACE",
+    "last_name": "MARTINEZ",
+    "email": "grace.martinez@company.com",
+    "department": "Support",
+    "salary": 60000.0
+  },
+  {
+    "employee_id": 10,
+    "first_name": "HENRY",
+    "last_name": "ANDERSON",
+    "email": "henry.anderson@company.com",
+    "department": "Research",
+    "salary": 90000.0
+  }
+]

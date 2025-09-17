@@ -358,20 +358,20 @@ async def transform_data(request: UnifiedTransformRequest):
             f.write(f"Processing Time: {processing_time:.2f} seconds\n")
             f.write(f"Status: Success\n")
         
-        # Get relative paths for all files and convert to forward slashes for cleaner JSON
-        output_file_relative = f"{output_path}.{output_format}".replace("\\", "/")
-        log_file_relative = log_path.replace("\\", "/")
-        source_file_relative = source_file_path.replace("\\", "/")
+        # Get absolute paths for all files and convert to forward slashes for cleaner JSON
+        output_file_absolute = os.path.abspath(f"{output_path}.{output_format}").replace("\\", "/")
+        log_file_absolute = os.path.abspath(log_path).replace("\\", "/")
+        source_file_absolute = os.path.abspath(source_file_path).replace("\\", "/")
         
         # Prepare response content based on processing mode
         response_content = {
             "status": "success",
             "run_id": run_id,
-            "source_file": source_file_relative,
-            "output_file": output_file_relative,
+            "source_file": source_file_absolute,
+            "output_file": output_file_absolute,
             "output_format": output_format,
             "processing_time_seconds": round(processing_time, 2),
-            "log_file": log_file_relative,
+            "log_file": log_file_absolute,
             "error_file": None,  # No errors occurred
             "message": "Transformation completed successfully",
             "timestamp": datetime.now().isoformat()
